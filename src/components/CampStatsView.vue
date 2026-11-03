@@ -113,11 +113,12 @@ const changeMeta = (val: number | null | undefined, isIncreaseGood: boolean) => 
             </div>
           </div>
         </div>
-        <div v-else class="overflow-x-auto">
+        <div v-else>
           <div class="p-4 bg-gray-50 border-b border-gray-200">
             <h3 class="font-bold text-gray-900 text-sm mb-1">学员个人改善明细</h3>
             <p class="text-xs text-gray-500">左右滑动查看更多指标（结营后 - 开营前）</p>
           </div>
+          <div class="overflow-x-auto">
           <table class="w-full text-left text-sm whitespace-nowrap">
             <thead class="bg-gray-50 text-gray-500 border-b border-gray-200">
               <tr>
@@ -137,6 +138,7 @@ const changeMeta = (val: number | null | undefined, isIncreaseGood: boolean) => 
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </Card>
     </div>
