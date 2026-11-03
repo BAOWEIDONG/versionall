@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { showDialog, Checkbox as VanCheckbox, showToast } from 'vant';
-import { useAppStore, questionnaireStorageKey } from '../store/app';
+import { useAppStore, isQuestionnaireSubmitted } from '../store/app';
 import { Button, NavBar } from './ui';
 import { MessageCircle, UserCircle, Dumbbell, Leaf, Activity } from 'lucide-vue-next';
 import type { Role } from '../types';
@@ -73,7 +73,7 @@ const handlePhoneSubmit = () => {
 
   if (account.role === 'coach') store.setCurrentView('coach-dashboard');
   else if (account.role === 'dietitian') store.setCurrentView('dietitian-dashboard');
-  else store.setCurrentView(localStorage.getItem(questionnaireStorageKey('submitted', account.id)) ? 'dashboard' : 'questionnaire');
+  else store.setCurrentView(isQuestionnaireSubmitted(account.id) ? 'dashboard' : 'questionnaire');
 };
 </script>
 

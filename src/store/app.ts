@@ -43,6 +43,27 @@ export function questionnaireStorageKey(kind: 'submitted' | 'draft', studentId: 
   return nsKey(`${kind === 'submitted' ? 'submitted_questionnaire' : 'draft_questionnaire'}_${studentId}`);
 }
 
+/** 是否已完成问卷。
+ *  - 只认用户自己提交的裸 formData；
+ *  - 旧版本自动写入的演示种子是 { formData: ... } 包装，视为未完成，并清掉 submitted/draft 让用户从空白开始填。
+ */
+export function isQuestionnaireSubmitted(studentId: string): boolean {
+  try {
+    const submittedKey = questionnaireStorageKey('submitted', studentId);
+    const raw = localStorage.getItem(submittedKey);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && parsed.formData) {
+      localStorage.removeItem(submittedKey);
+      localStorage.removeItem(questionnaireStorageKey('draft', studentId));
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export type View =
   | 'login'
   | 'register'
@@ -526,7 +547,7 @@ export const useAppStore = defineStore('app', () => {
         // 默认展示最新营期
         applyLatestCampDefault();
         // 恢复问卷状态（按学员隔离，防止串用他人问卷数据）
-        const qSaved = localStorage.getItem(questionnaireStorageKey('submitted', data.user.id));
+        const qSaved = isQuestionnaireSubmitted(data.user.id);
         questionnaireAnswered.value = !!qSaved;
         // 根据角色和问卷状态跳转到对应首页
         if (data.user.role === 'coach') {
@@ -575,7 +596,7 @@ export const useAppStore = defineStore('app', () => {
     // 以 localStorage 的 submitted_questionnaire 为权威完成标志（提交成功后立刻写入）。
     if (view !== 'questionnaire') {
       const completed = user.value
-        ? !!localStorage.getItem(questionnaireStorageKey('submitted', user.value.id))
+        ? isQuestionnaireSubmitted(user.value.id)
         : true;
       if (user.value?.role === 'student' && !completed) view = 'questionnaire';
     }
