@@ -935,13 +935,13 @@ interface DemoProfile {
 const demoProfiles: DemoProfile[] = [
   // 仅对尚无打卡数据的学员生成，避免与原有 s1–s8/s12 种子重复计分
   { id: 's10', campId: 'camp1', rate: 0.08, startWeight: 74, annotate: 0.05, dietitian: '王营养师', coach: '李教练' },
-  { id: 's13', campId: 'camp1', rate: 0.95, startWeight: 68, annotate: 0.4, dietitian: '王营养师', coach: '李教练' },
+  { id: 's13', campId: 'camp1', rate: 0.95, startWeight: 80, annotate: 0.4, dietitian: '王营养师', coach: '李教练' },
   { id: 's14', campId: 'camp1', rate: 0.8, startWeight: 61, annotate: 0.25, dietitian: '李营养师', coach: '王教练' },
   { id: 's15', campId: 'camp1', rate: 0.55, startWeight: 90, annotate: 0.18, dietitian: '王营养师', coach: '李教练' },
   { id: 's16', campId: 'camp1', rate: 0.68, startWeight: 57, annotate: 0.2, dietitian: '李营养师', coach: '王教练' },
   { id: 's17', campId: 'camp1', rate: 0.76, startWeight: 84, annotate: 0.26, dietitian: '王营养师', coach: '李教练' },
   { id: 's10', campId: 'camp2', rate: 0.33, startWeight: 74, annotate: 0.1, dietitian: '李营养师', coach: '李教练' },
-  { id: 's13', campId: 'camp2', rate: 0.92, startWeight: 68, annotate: 0.9, dietitian: '李营养师', coach: '王教练' },
+  { id: 's13', campId: 'camp2', rate: 0.92, startWeight: 72, annotate: 0.9, dietitian: '李营养师', coach: '王教练' },
   { id: 's17', campId: 'camp2', rate: 0.7, startWeight: 84, annotate: 0.2, dietitian: '王营养师', coach: '李教练' },
   { id: 's18', campId: 'camp2', rate: 0.85, startWeight: 59, annotate: 0.28, dietitian: '李营养师', coach: '王教练' },
   { id: 's19', campId: 'camp2', rate: 0.5, startWeight: 96, annotate: 0.15, dietitian: '王营养师', coach: '李教练' },
@@ -1053,7 +1053,8 @@ demoProfiles.forEach((p) => {
     if (demoCamp1 || demoRand(dayKey + 'wt') < p.rate * 0.65 || i <= 1 || i === days - 1) {
       const seed = `dw_${p.id}_${p.campId}_${i}`;
       if (demoCamp1) {
-        weight = Number((p.startWeight - (p.startWeight - 63.5) * (i / Math.max(1, days - 2))).toFixed(1));
+        const endWeight = p.campId === 'camp1' ? 72 : p.startWeight - 0.6;
+        weight = Number((p.startWeight - (p.startWeight - endWeight) * (i / Math.max(1, days - 2))).toFixed(1));
       } else if (i > 0) weight = Math.max(p.startWeight - 8, weight - 0.18 - demoRand(seed) * 0.12);
       const doAnno = demoRand(dayKey + 'wtann') < p.annotate * 0.6;
       const annoText = '体重下降节奏很好，注意蛋白摄入别掉。';
@@ -1096,18 +1097,18 @@ if (MOCK_STUDENT_METRIC_VALUES.s13) {
   // 体验学员第一期：给一套完整、方向正确的体成分/代谢/肝肾功能复测数据，
   // 让「健康档案-体检指标」「结营报告-指标变化」「指标变化统计」都有可讲的改善故事。
   Object.assign(MOCK_STUDENT_METRIC_VALUES.s13, {
-    'mc_body_weight': { beforeValue: 68, afterValue: 63.5 },
-    'mc_body_fat': { beforeValue: 27.2, afterValue: 22.6 },
-    'mc_body_muscle': { beforeValue: 40.1, afterValue: 41.0 },
-    'mc_body_skeletal': { beforeValue: 30.63, afterValue: 31.24 },
-    'mc_body_bmr': { beforeValue: 1580.5, afterValue: 1608 },
-    'mc_body_whr': { beforeValue: 1.04, afterValue: 0.93 },
-    'mc_body_visceral': { beforeValue: 130.8, afterValue: 98.2 },
-    'mc_body_obesity': { beforeValue: 136.25, afterValue: 118.4 },
-    'mc_body_cell': { beforeValue: 38.7, afterValue: 39.6 },
-    'mc_body_edema': { beforeValue: 0.44, afterValue: 0.39 },
-    'mc_body_asmi': { beforeValue: 7.6, afterValue: 8.0 },
-    'mc_body_ainst': { beforeValue: 65, afterValue: 82 },
+    'mc_body_weight': { beforeValue: 80, afterValue: 72 },
+    'mc_body_fat': { beforeValue: 32.0, afterValue: 25.5 },
+    'mc_body_muscle': { beforeValue: 40.1, afterValue: 41.2 },
+    'mc_body_skeletal': { beforeValue: 30.63, afterValue: 31.3 },
+    'mc_body_bmr': { beforeValue: 1620, afterValue: 1652 },
+    'mc_body_whr': { beforeValue: 1.06, afterValue: 0.95 },
+    'mc_body_visceral': { beforeValue: 150, afterValue: 112 },
+    'mc_body_obesity': { beforeValue: 155, afterValue: 132 },
+    'mc_body_cell': { beforeValue: 39.2, afterValue: 40.1 },
+    'mc_body_edema': { beforeValue: 0.46, afterValue: 0.40 },
+    'mc_body_asmi': { beforeValue: 7.5, afterValue: 7.9 },
+    'mc_body_ainst': { beforeValue: 63, afterValue: 80 },
     'mc_liver_alt': { beforeValue: 59.95, afterValue: 38 },
     'mc_liver_ast': { beforeValue: 42, afterValue: 30 },
     'mc_liver_ggt': { beforeValue: 70, afterValue: 45 },
@@ -1207,7 +1208,11 @@ export function metricValuesFor(studentId: string, campId?: string | null): Reco
   if (!campId || campId === 'camp1') return base;
   // 第二期/第三期：只保留营前值
   const beforeOnly: Record<string, MetricValue> = {};
-  Object.entries(base).forEach(([k, v]) => { beforeOnly[k] = { beforeValue: v.beforeValue, afterValue: null }; });
+  Object.entries(base).forEach(([k, v]) => {
+    // 体验学员第二期：营前值 = 第一期营后值（连续减重的第二段），不再回到 80kg
+    const before = campId === 'camp2' && studentId === 's13' && v.afterValue != null ? v.afterValue : v.beforeValue;
+    beforeOnly[k] = { beforeValue: before, afterValue: null };
+  });
   return beforeOnly;
 }
 
@@ -1220,4 +1225,4 @@ export function hasCampMetricReview(campId?: string | null): boolean {
 export const DEMO_METRIC_CAMP1_STUDENT_IDS = DEMO_METRIC_CAMP1_IDS;
 
 /** 演示数据版本：用于本机旧快照的一次性增量合并（改动 mock 种子时 +1） */
-export const DEMO_SCHEMA_VERSION = 3;
+export const DEMO_SCHEMA_VERSION = 4;

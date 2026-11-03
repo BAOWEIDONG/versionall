@@ -46,14 +46,14 @@ const formData = reactive({
   foodAllergyDetails: '',
   wakeTime: '',
   sleepTime: '',
-  sleepDuration: '7.5',
+  sleepDuration: '',
   drinkAlcohol: '',
   smoke: '',
   snack: '',
-  dailyWater: '1500',
-  exerciseFrequency: '3',
+  dailyWater: '',
+  exerciseFrequency: '',
   exerciseTypes: [] as string[],
-  exerciseDuration: '45',
+  exerciseDuration: '',
   medicalReports: [] as { url: string; type: 'image' | 'pdf'; name?: string }[],
 });
 
@@ -355,17 +355,17 @@ function onTimePickerConfirm({ selectedValues }: { selectedValues: string[] }) {
 
           <div>
             <label class="text-sm font-medium text-gray-700 block mb-1.5">年龄 <span class="text-red-500">*</span></label>
-            <input type="number" inputmode="numeric" placeholder="例如: 32" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.age" @input="formData.age = ($event.target as HTMLInputElement).value; error = ''" />
+            <input type="number" inputmode="numeric" placeholder="请输入年龄" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.age" @input="formData.age = ($event.target as HTMLInputElement).value; error = ''" />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="text-sm font-medium text-gray-700 block mb-1.5">身高 (cm) <span class="text-red-500">*</span></label>
-              <input type="number" inputmode="decimal" placeholder="170" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.height" @input="formData.height = ($event.target as HTMLInputElement).value; error = ''" />
+              <input type="number" inputmode="decimal" placeholder="请输入身高" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.height" @input="formData.height = ($event.target as HTMLInputElement).value; error = ''" />
             </div>
             <div>
               <label class="text-sm font-medium text-gray-700 block mb-1.5">体重 (kg) <span class="text-red-500">*</span></label>
-              <input type="number" inputmode="decimal" placeholder="65.5" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.weight" @input="formData.weight = ($event.target as HTMLInputElement).value; error = ''" />
+              <input type="number" inputmode="decimal" placeholder="请输入体重" class="w-full rounded-xl border border-gray-200 p-3.5 focus:border-[#07C160] focus:outline-none focus:ring-2 focus:ring-[#07C160]/10 transition-all" :value="formData.weight" @input="formData.weight = ($event.target as HTMLInputElement).value; error = ''" />
             </div>
           </div>
 
@@ -476,8 +476,11 @@ function onTimePickerConfirm({ selectedValues }: { selectedValues: string[] }) {
                 class="w-24 text-3xl font-black text-gray-900 text-center bg-white rounded-lg border border-[#07C160] focus:outline-none py-1"
               />
               <template v-else>
-                <span class="text-3xl font-black text-gray-900">{{ formData.sleepDuration }}</span>
-                <span class="text-sm text-gray-400 ml-1">小时</span>
+                <template v-if="formData.sleepDuration">
+                  <span class="text-3xl font-black text-gray-900">{{ formData.sleepDuration }}</span>
+                  <span class="text-sm text-gray-400 ml-1">小时</span>
+                </template>
+                <span v-else class="text-base font-bold text-gray-300">点击填写</span>
               </template>
             </div>
             <button @click="adjustNumber('sleepDuration', 1, 0, 24, 0.5, 7.5)" class="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center active:scale-90 transition-transform shrink-0">
@@ -503,9 +506,12 @@ function onTimePickerConfirm({ selectedValues }: { selectedValues: string[] }) {
                 class="w-28 text-3xl font-black text-[#1677FF] text-center bg-white rounded-lg border border-[#1677FF] focus:outline-none py-1"
               />
               <template v-else>
-                <span class="text-3xl font-black text-[#1677FF]">{{ formData.dailyWater }}</span>
-                <span class="text-sm text-gray-400 ml-1">ml</span>
-                <div class="text-[10px] text-gray-400 mt-0.5">约 {{ Math.round((parseInt(formData.dailyWater || '1500')) / 250) }} 杯</div>
+                <template v-if="formData.dailyWater">
+                  <span class="text-3xl font-black text-[#1677FF]">{{ formData.dailyWater }}</span>
+                  <span class="text-sm text-gray-400 ml-1">ml</span>
+                  <div class="text-[10px] text-gray-400 mt-0.5">约 {{ Math.round((parseInt(formData.dailyWater || '1500')) / 250) }} 杯</div>
+                </template>
+                <span v-else class="text-base font-bold text-gray-300">点击填写</span>
               </template>
             </div>
             <button @click="adjustNumber('dailyWater', 1, 0, 10000, 250, 1500)" class="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center active:scale-90 transition-transform shrink-0">
@@ -557,8 +563,11 @@ function onTimePickerConfirm({ selectedValues }: { selectedValues: string[] }) {
                 class="w-24 text-3xl font-black text-[#07C160] text-center bg-white rounded-lg border border-[#07C160] focus:outline-none py-1"
               />
               <template v-else>
-                <span class="text-3xl font-black text-[#07C160]">{{ formData.exerciseFrequency }}</span>
-                <span class="text-sm text-gray-400 ml-1">次/周</span>
+                <template v-if="formData.exerciseFrequency">
+                  <span class="text-3xl font-black text-[#07C160]">{{ formData.exerciseFrequency }}</span>
+                  <span class="text-sm text-gray-400 ml-1">次/周</span>
+                </template>
+                <span v-else class="text-base font-bold text-gray-300">点击填写</span>
               </template>
             </div>
             <button @click="adjustNumber('exerciseFrequency', 1, 0, 21, 1, 3)" class="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center active:scale-90 transition-transform shrink-0">
@@ -584,8 +593,11 @@ function onTimePickerConfirm({ selectedValues }: { selectedValues: string[] }) {
                 class="w-24 text-3xl font-black text-[#FF976A] text-center bg-white rounded-lg border border-[#FF976A] focus:outline-none py-1"
               />
               <template v-else>
-                <span class="text-3xl font-black text-[#FF976A]">{{ formData.exerciseDuration }}</span>
-                <span class="text-sm text-gray-400 ml-1">分钟</span>
+                <template v-if="formData.exerciseDuration">
+                  <span class="text-3xl font-black text-[#FF976A]">{{ formData.exerciseDuration }}</span>
+                  <span class="text-sm text-gray-400 ml-1">分钟</span>
+                </template>
+                <span v-else class="text-base font-bold text-gray-300">点击填写</span>
               </template>
             </div>
             <button @click="adjustNumber('exerciseDuration', 1, 0, 600, 15, 45)" class="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center active:scale-90 transition-transform shrink-0">

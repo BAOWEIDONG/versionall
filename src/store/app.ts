@@ -1026,7 +1026,7 @@ export const useAppStore = defineStore('app', () => {
       else if (a.supervisor && !hit.supervisor) hit.supervisor = true;
     });
     // 记录：清掉未来/开营前脏数据；v3 起用线性体重历史替换体验学员第一期旧体重
-    if (fromVersion < 3) {
+    if (fromVersion < 4) {
       weightRecords.value = weightRecords.value.filter((r) => !(r.studentId === 's13' && r.campId === 'camp1'));
     }
     dietRecords.value = dietRecords.value.filter((r) => validDate(r.date, r.campId));
