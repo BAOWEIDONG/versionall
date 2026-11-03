@@ -71,9 +71,9 @@ const handlePhoneSubmit = () => {
   const roleLabel = account.role === 'dietitian' ? '营养师' : account.role === 'coach' ? '教练' : '学员';
   showToast(`欢迎回来${account.name ? '，' + roleLabel + ' ' + account.name : '，' + roleLabel}`);
 
-  if (account.role === 'coach') store.setCurrentView('coach-dashboard');
-  else if (account.role === 'dietitian') store.setCurrentView('dietitian-dashboard');
-  else store.setCurrentView(isQuestionnaireSubmitted(account.id) ? 'dashboard' : 'questionnaire');
+  if (account.role === 'coach') store.resetToView('coach-dashboard');
+  else if (account.role === 'dietitian') store.resetToView('dietitian-dashboard');
+  else store.resetToView(isQuestionnaireSubmitted(account.id) ? 'dashboard' : 'questionnaire');
 };
 </script>
 

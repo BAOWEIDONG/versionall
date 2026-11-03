@@ -620,11 +620,28 @@ export const useAppStore = defineStore('app', () => {
     if (!DETAIL_FLOW_VIEWS.includes(view)) detailSelectedCampId.value = null;
   }
 
-  function goBack() {
+  /** 只弹内部视图栈，不碰浏览器历史（供 popstate / 自定义手势调用） */
+  /** 登录/问卷提交后重置页面栈：根页返回时不再回到登录/问卷 */
+  function resetToView(view: View) {
+    viewHistory.value = [view];
+    detailSelectedCampId.value = null;
+  }
+
+  function popViewHistory() {
     if (viewHistory.value.length > 1) {
       viewHistory.value.pop();
       if (!DETAIL_FLOW_VIEWS.includes(currentView.value)) detailSelectedCampId.value = null;
     }
+  }
+
+  function goBack() {
+    // 已接入浏览器历史：先走 history.back()，由 App 的 popstate 统一弹栈，
+    // 这样手机系统返回/边缘返回与页面返回按钮行为一致。
+    if (typeof window !== 'undefined' && (window.history.state as any)?.__camp) {
+      window.history.back();
+      return;
+    }
+    popViewHistory();
   }
 
   function setQuestionnaireAnswered(v: boolean) {
@@ -1691,6 +1708,8 @@ export const useAppStore = defineStore('app', () => {
     getHasActivity,
     updateActivityConfig,
     currentView,
+    viewHistory,
+    resetToView,
     init,
     questionnaireAnswered,
     students,
@@ -1716,6 +1735,7 @@ export const useAppStore = defineStore('app', () => {
     logout,
     setCurrentView,
     goBack,
+    popViewHistory,
     setQuestionnaireAnswered,
     addWeightRecord,
     updateWeightRecord,

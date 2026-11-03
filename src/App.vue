@@ -127,6 +127,72 @@ watch(() => store.currentView, () => {
   });
 });
 
+// ─── 手机返回手势适配 ─────────────────────────────────────────────
+// 1) 页面栈同步到浏览器 history：安卓系统返回、iPhone Safari 左缘返回会触发 popstate，
+//    统一走 store.popViewHistory()，不再直接离开页面。
+// 2) 独立 PWA 下系统手势不可用，补一个左缘右滑返回（只在 standalone 模式启用，避免与系统手势双触发）。
+let suppressHistoryPush = false;
+function onPopState() {
+  if (store.viewHistory.length > 1) {
+    suppressHistoryPush = true;
+    store.popViewHistory();
+  }
+  // 始终保留一条哨兵记录，保证下一次返回仍由页面接管，而不是跳出站点
+  window.history.pushState({ __camp: true }, '');
+}
+watch(() => store.currentView, () => {
+  if (suppressHistoryPush) { suppressHistoryPush = false; return; }
+  window.history.pushState({ __camp: true }, '');
+});
+
+const isStandalone = typeof window !== 'undefined'
+  && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
+const edgeActive = ref(false);
+const edgeDx = ref(0);
+let edgeStartX = 0;
+let edgeStartY = 0;
+let edgeTracking = false;
+function onEdgeStart(e: TouchEvent) {
+  if (!isStandalone || e.touches.length !== 1 || store.viewHistory.length <= 1) return;
+  const t = e.touches[0];
+  if (t.clientX > 24) return; // 只认左边缘 24px 起手
+  edgeTracking = true;
+  edgeActive.value = true;
+  edgeDx.value = 0;
+  edgeStartX = t.clientX;
+  edgeStartY = t.clientY;
+  // 阻止页面内的 Tab 横滑同时响应
+  e.stopPropagation();
+}
+function onEdgeMove(e: TouchEvent) {
+  if (!edgeTracking) return;
+  const t = e.touches[0];
+  const dx = t.clientX - edgeStartX;
+  const dy = t.clientY - edgeStartY;
+  if (dx > 0 && Math.abs(dx) > Math.abs(dy)) {
+    edgeDx.value = Math.min(110, dx);
+    if (e.cancelable) e.preventDefault();
+    e.stopPropagation();
+  } else if (Math.abs(dy) > 24) {
+    edgeTracking = false;
+    edgeActive.value = false;
+    edgeDx.value = 0;
+  }
+}
+function onEdgeEnd() {
+  if (!edgeTracking) return;
+  const fire = edgeDx.value >= 70;
+  edgeTracking = false;
+  edgeActive.value = false;
+  edgeDx.value = 0;
+  if (fire) store.goBack();
+}
+function onEdgeCancel() {
+  edgeTracking = false;
+  edgeActive.value = false;
+  edgeDx.value = 0;
+}
+
 // 启用 iOS 液态玻璃悬浮 Tabbar（打印时移除，回到普通 Tabbar 并遵循 print:hidden）
 const handleBeforePrint = () => document.body.classList.remove('liquid-glass');
 const handleAfterPrint = () => document.body.classList.add('liquid-glass');
@@ -134,9 +200,24 @@ const handleAfterPrint = () => document.body.classList.add('liquid-glass');
 onBeforeUnmount(() => {
   window.removeEventListener('beforeprint', handleBeforePrint);
   window.removeEventListener('afterprint', handleAfterPrint);
+  window.removeEventListener('popstate', onPopState);
+  window.removeEventListener('touchstart', onEdgeStart, true);
+  window.removeEventListener('touchmove', onEdgeMove, true);
+  window.removeEventListener('touchend', onEdgeEnd, true);
+  window.removeEventListener('touchcancel', onEdgeCancel, true);
 });
 
 onMounted(() => {
+  // 初始化浏览器历史哨兵 + 返回手势监听
+  if (typeof window !== 'undefined') {
+    window.history.replaceState({ ...(window.history.state || {}), __camp: true }, '');
+    window.history.pushState({ __camp: true }, '');
+    window.addEventListener('popstate', onPopState);
+    window.addEventListener('touchstart', onEdgeStart, { capture: true, passive: true });
+    window.addEventListener('touchmove', onEdgeMove, { capture: true, passive: false });
+    window.addEventListener('touchend', onEdgeEnd, { capture: true, passive: true });
+    window.addEventListener('touchcancel', onEdgeCancel, { capture: true, passive: true });
+  }
   document.body.classList.add('liquid-glass');
   window.addEventListener('beforeprint', handleBeforePrint);
   window.addEventListener('afterprint', handleAfterPrint);
@@ -165,6 +246,15 @@ onMounted(() => {
       </div>
     </div>
     <VideoPreview />
+
+    <!-- PWA 左缘滑动返回指示 -->
+    <div
+      v-if="edgeActive"
+      class="fixed left-0 top-1/2 -translate-y-1/2 z-[2000] pointer-events-none transition-opacity"
+      :style="{ opacity: Math.min(1, edgeDx / 70) }"
+    >
+      <div class="w-9 h-16 rounded-r-2xl bg-black/25 backdrop-blur flex items-center justify-center text-white text-2xl">‹</div>
+    </div>
   </div>
 </template>
 

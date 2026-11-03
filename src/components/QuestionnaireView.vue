@@ -187,7 +187,7 @@ const handleSubmit = () => {
   localStorage.setItem(qKey('submitted'), JSON.stringify(formData));
   localStorage.removeItem(qKey('draft'));
   store.setQuestionnaireAnswered(true);
-  store.setCurrentView('dashboard');
+  store.resetToView('dashboard');
 };
 
 const toggleMulti = (opt: string) => {
