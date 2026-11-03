@@ -18,9 +18,11 @@ import {
   MOCK_POINT_EXCHANGES,
   MOCK_MANUAL_SCORES,
   metricValuesFor,
+  DEMO_SCHEMA_VERSION,
 } from '../mock/data';
 import * as api from '../lib/api';
 import { calculateTotalScore } from '../lib/scoring';
+import { nsKey } from '../lib/storage';
 import { computeBadgeRecords, computeOneTimeBadgeRecords } from '../lib/badges';
 import { generateStudentReport } from '../lib/campReport';
 import { calculateStreak, calculateLongestStreakInRange } from '../lib/streak';
@@ -38,7 +40,7 @@ function formatDateTimeStr(): string {
  *  入营问卷完成标志与提交数据必须按账户隔离——否则同一浏览器用不同账户(尤其新加的学生)
  *  时,会串用前一个学员的 localStorage(跳过问卷直达首页、健康档案显示别人的数据)。 */
 export function questionnaireStorageKey(kind: 'submitted' | 'draft', studentId: string): string {
-  return `versionall_${kind === 'submitted' ? 'submitted_questionnaire' : 'draft_questionnaire'}_${studentId}`;
+  return nsKey(`${kind === 'submitted' ? 'submitted_questionnaire' : 'draft_questionnaire'}_${studentId}`);
 }
 
 export type View =
@@ -677,7 +679,7 @@ export const useAppStore = defineStore('app', () => {
   // 打开批注编辑器即持锁，保存/取消/离开释放；持锁期间其他人打开→提示「X 正在编辑…请稍后再试」，实现先后提交。
   // TTL 3 分钟：持锁人异常离开（杀 Tab/崩溃）自动过期，防锁死。
   interface AnnotationLock { byId: string; byName: string; at: number; expiresAt: number }
-  const ANNO_LOCK_KEY = 'camp_annotation_locks';
+  const ANNO_LOCK_KEY = nsKey('annotation_locks');
   const ANNO_LOCK_TTL = 3 * 60 * 1000;
   const annLockKey = (type: string, recordId: string) => `${type}:${recordId}`;
   function loadAnnLocks(): Record<string, AnnotationLock> {
@@ -995,7 +997,47 @@ export const useAppStore = defineStore('app', () => {
   function persistBiz() {
     const snap: Record<string, unknown> = {};
     bizSources.forEach((src, i) => { snap[bizNames[i]] = src.value; });
+    snap._v = DEMO_SCHEMA_VERSION;
     try { localStorage.setItem(BIZ_KEY, JSON.stringify(snap)); } catch { /* 隐私模式/超限：静默降级为内存，不影响功能 */ }
+  }
+
+  /** 旧版本快照 → 新 mock 种子的一次性增量合并：
+   *  保留用户改过的数据，仅补充新增的学员/账号/奖品/记录，并清掉未来日期等脏数据。 */
+  function mergeSeedData() {
+    const today = formatDateTimeStr().slice(0, 10);
+    const campStart = (cid?: string) => camps.value.find((c) => c.id === cid)?.startDate || '';
+    const validDate = (d: string, cid?: string) => {
+      const day = (d || '').slice(0, 10);
+      return !!day && day <= today && (!campStart(cid) || day >= campStart(cid)!);
+    };
+
+    // 学员 / 营期：按 id 补缺
+    MOCK_STUDENTS.forEach((stu) => { if (!students.value.some((s) => s.id === stu.id)) students.value.push({ ...stu } as any); });
+    MOCK_CAMPS.forEach((c) => { if (!camps.value.some((x) => x.id === c.id)) camps.value.push({ ...c }); });
+    // 账号：同手机号+角色视为同一账户；新种子的督导权限合并进来
+    MOCK_ACCOUNTS.forEach((a) => {
+      const hit = accounts.value.find((x) => x.phone === a.phone && x.role === a.role);
+      if (!hit) accounts.value.push({ ...a });
+      else if (a.supervisor && !hit.supervisor) hit.supervisor = true;
+    });
+    // 记录：清掉未来/开营前脏数据，再按业务主键补缺
+    dietRecords.value = dietRecords.value.filter((r) => validDate(r.date, r.campId));
+    exerciseRecords.value = exerciseRecords.value.filter((r) => validDate(r.date, r.campId));
+    weightRecords.value = weightRecords.value.filter((r) => validDate(r.date, r.campId));
+    const dietKey = (r: DietRecord) => `${r.studentId}|${r.campId}|${r.date.slice(0, 10)}|${r.meal}`;
+    const dietSet = new Set(dietRecords.value.map(dietKey));
+    MOCK_DIET_RECORDS.forEach((r) => { if (!dietSet.has(dietKey(r))) { dietRecords.value.push({ ...r }); dietSet.add(dietKey(r)); } });
+    const exSet = new Set(exerciseRecords.value.map((r) => r.id));
+    MOCK_EXERCISE_RECORDS.forEach((r) => { if (!exSet.has(r.id)) { exerciseRecords.value.push({ ...r }); exSet.add(r.id); } });
+    const wtKey = (r: WeightRecord) => `${r.studentId}|${r.campId}|${r.date.slice(0, 10)}`;
+    const wtSet = new Set(weightRecords.value.map(wtKey));
+    MOCK_WEIGHT_RECORDS.forEach((r) => { if (!wtSet.has(wtKey(r))) { weightRecords.value.push({ ...r }); wtSet.add(wtKey(r)); } });
+    // 奖励 / 商品 / 领取 / 兑换 / 手动分：按 id 补缺
+    MOCK_REWARD_TIERS.forEach((t) => { if (!rewardTiers.value.some((x) => x.id === t.id)) rewardTiers.value.push({ ...t }); });
+    MOCK_POINT_PRODUCTS.forEach((p) => { if (!pointProducts.value.some((x) => x.id === p.id)) pointProducts.value.push({ ...p }); });
+    MOCK_REWARD_CLAIMS.forEach((c) => { if (!rewardClaims.value.some((x) => x.id === c.id)) rewardClaims.value.push({ ...c }); });
+    MOCK_POINT_EXCHANGES.forEach((e) => { if (!pointExchanges.value.some((x) => x.id === e.id)) pointExchanges.value.push({ ...e }); });
+    MOCK_MANUAL_SCORES.forEach((m) => { if (!manualScoreRecords.value.some((x) => x.id === m.id)) manualScoreRecords.value.push({ ...m }); });
   }
   /** 从 localStorage 回读业务数据并覆盖各 ref；无可用数据返回 false */
   function restoreBiz(): boolean {
@@ -1007,6 +1049,11 @@ export const useAppStore = defineStore('app', () => {
       bizSources.forEach((src, i) => {
         if (snap[bizNames[i]] !== undefined) { (src as { value: unknown }).value = snap[bizNames[i]]; hasData = true; }
       });
+      const savedVersion = Number((snap as any)._v || 1);
+      if (hasData && savedVersion < DEMO_SCHEMA_VERSION) {
+        mergeSeedData();
+        persistBiz();
+      }
       return hasData;
     } catch { return false; }
   }

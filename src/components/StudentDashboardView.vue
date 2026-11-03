@@ -4,6 +4,7 @@ import { useDebounced } from '../composables/useDebounced';
 import { format } from 'date-fns';
 import { useAppStore } from '../store/app';
 import type { View } from '../store/app';
+import { nsKey } from '../lib/storage';
 import { campDateRange, campDaysOf } from '../lib/camps';
 import { Card, GenderAvatar, StudentTabbar } from './ui';
 import { Activity, Coffee, Calendar, Scale, PlayCircle, LogOut, Medal, Trophy, Gift, BookOpen, MessageCircle, ChevronDown, TrendingDown, TrendingUp, Minus, Target, X, Sparkles } from 'lucide-vue-next';
@@ -286,7 +287,7 @@ const weeklyChallengePreview = computed(() => {
 // ---- 昨日小结卡（今天首次打开时展示） ----
 const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
 // 同步读取 localStorage，避免返回首页时弹窗闪现
-const _dailySummaryKey = `daily_summary_${store.user?.id || 'anon'}_${todayStr}`;
+const _dailySummaryKey = nsKey(`daily_summary_${store.user?.id || 'anon'}_${todayStr}`);
 const dailySummaryDismissed = ref(!!localStorage.getItem(_dailySummaryKey));
 
 const SUMMARY_ITEMS = [
@@ -445,7 +446,7 @@ const showRewardNotify = ref(false);
 const shownRewardTiers = ref<Set<string>>(new Set());
 // 昨日小结/成就弹窗占位时暂存的待展示奖励
 const pendingRewards = ref<RewardTier[]>([]);
-const rewardSeenKey = () => `seen_streak_reward_v2_${store.user?.id || 'anon'}`;
+const rewardSeenKey = () => nsKey(`seen_streak_reward_v2_${store.user?.id || 'anon'}`);
 
 // 连续打卡奖励档位（排除趣味活动 source=activity，按 requiredDays 升序）
 const streakRewardTiers = computed(() => {

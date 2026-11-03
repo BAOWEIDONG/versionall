@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useAppStore } from '../store/app';
+import { nsKey } from '../lib/storage';
 import { campDateRange, latestOrFirstId } from '../lib/camps';
 import { useDietitianCounts } from '../lib/dietitianCounts';
 import { usePaged } from '../composables/usePaged';
@@ -53,7 +54,7 @@ const campWeightRecords = computed(() => selectedCampId.value ? store.getCampWei
 const disabledStudentIds = computed(() => new Set(store.accounts.filter((a) => a.role === 'student' && a.active === false).map((a) => a.id)));
 
 // 过滤标签（localStorage 持久化：营养师从学员详情返回或系统返回重载后，筛选不丢）
-const PEND_FILTER_KEY = 'dietitian_pending_filter';
+const PEND_FILTER_KEY = nsKey('dietitian_pending_filter');
 const storedFilter = (): ItemType | 'all' => {
   const v = localStorage.getItem(PEND_FILTER_KEY);
   return v === 'diet' || v === 'weight' ? v : 'all';

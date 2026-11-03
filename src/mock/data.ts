@@ -1191,3 +1191,6 @@ export function hasCampMetricReview(campId?: string | null): boolean {
 
 /** 兼容：列出有营前数据的学员（第一期演示用） */
 export const DEMO_METRIC_CAMP1_STUDENT_IDS = DEMO_METRIC_CAMP1_IDS;
+
+/** 演示数据版本：用于本机旧快照的一次性增量合并（改动 mock 种子时 +1） */
+export const DEMO_SCHEMA_VERSION = 2;

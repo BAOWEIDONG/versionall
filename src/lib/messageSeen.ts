@@ -10,7 +10,9 @@
  *
  * userId 内聚：结构为 { [userId]: { ranks, lastSystemSeenAt, readNotif } }。
  */
-export const MSG_SEEN_KEY = 'camp_msg_seen';
+import { nsKey } from './storage';
+
+export const MSG_SEEN_KEY = nsKey('msg_seen');
 
 export interface MsgSeenState {
   /** 按营期记录上次查看时的排名 */

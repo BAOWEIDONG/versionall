@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { usePaged } from '../composables/usePaged';
 import { useDebounced } from '../composables/useDebounced';
 import { useAppStore } from '../store/app';
+import { nsKey } from '../lib/storage';
 import { campDateRange } from '../lib/camps';
 import { NavBar, Card } from './ui';
 import { rankStudents } from '../lib/scoring';
@@ -89,8 +90,8 @@ const rankedStudents = computed(() => {
 // ---- 排名较昨日变动 ----
 const todayKey = format(new Date(), 'yyyy-MM-dd');
 const yesterdayKey = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
-const yesterdayRankKey = `rank_${activeCampId.value}_${yesterdayKey}`;
-const todayRankKey = `rank_${activeCampId.value}_${todayKey}`;
+const yesterdayRankKey = nsKey(`rank_${activeCampId.value}_${yesterdayKey}`);
+const todayRankKey = nsKey(`rank_${activeCampId.value}_${todayKey}`);
 
 const yesterdayRankMap = computed(() => {
   try {
@@ -122,7 +123,7 @@ const rankChange = (studentId: string, currentRank: number): number | null => {
 
 
 // ---- 加油互动 ----
-const cheerKey = (toId: string) => `cheer_${store.user?.id || 'anon'}_${toId}_${todayKey}`;
+const cheerKey = (toId: string) => nsKey(`cheer_${store.user?.id || 'anon'}_${toId}_${todayKey}`);
 const cheeredIds = ref<Set<string>>(new Set());
 
 const loadCheers = () => {
@@ -137,7 +138,7 @@ const cheerCount = (studentId: string): number => {
   // 统计所有人对该学员的加油次数（从 localStorage 扫描）
   let count = 0;
   for (const key of Object.keys(localStorage)) {
-    if (key.startsWith('cheer_') && key.includes(`_${studentId}_${todayKey}`)) count++;
+    if (key.startsWith(nsKey('cheer_')) && key.includes(`_${studentId}_${todayKey}`)) count++;
   }
   return count;
 };
