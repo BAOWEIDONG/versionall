@@ -145,15 +145,21 @@ watch(() => store.currentView, () => {
   window.history.pushState({ __camp: true }, '');
 });
 
+const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+const isWeChat = /MicroMessenger/i.test(ua);
+const isIOS = /iPhone|iPad|iPod/i.test(ua);
 const isStandalone = typeof window !== 'undefined'
   && (window.matchMedia?.('(display-mode: standalone)').matches || (navigator as any).standalone === true);
+// 微信 iOS：系统自带左缘返回，再叠加自定义手势会「一次滑动退两页」，因此只交给微信原生；
+// 安卓微信没有可靠边缘手势、独立 PWA 也没有系统手势，这两种情况启用左缘滑动兜底。
+const edgeSwipeEnabled = isStandalone || (isWeChat && !isIOS);
 const edgeActive = ref(false);
 const edgeDx = ref(0);
 let edgeStartX = 0;
 let edgeStartY = 0;
 let edgeTracking = false;
 function onEdgeStart(e: TouchEvent) {
-  if (!isStandalone || e.touches.length !== 1 || store.viewHistory.length <= 1) return;
+  if (!edgeSwipeEnabled || e.touches.length !== 1 || store.viewHistory.length <= 1) return;
   const t = e.touches[0];
   if (t.clientX > 24) return; // 只认左边缘 24px 起手
   edgeTracking = true;
