@@ -1121,3 +1121,42 @@ MOCK_REWARD_CLAIMS.push(
 MOCK_POINT_EXCHANGES.push(
   { id: 'pe8', studentId: 's13', studentName: '体验学员', productId: 'pp2', productName: '跳绳', productImage: rewardImg('跳绳', '🤸', '#FF976A', '#FF6B35'), pointsSpent: 50, exchangeDate: iso(0, '09:10:00'), status: 'pending', deliveryMethod: 'shipped', recipientName: '体验学员', recipientPhone: '13900000009', recipientAddress: '北京市朝阳区建国路 88 号', campId: 'camp2' },
 );
+
+// 演示积分：饮食/运动分依赖营养师逐条评分，演示账号可用积分容易为 0，导致积分商城无法兑换。
+// 这里按营期为学员补录「开营前线下打卡」积分，保证每人至少能兑换一档商品；不影响已消费记录口径。
+const demoPointSeeds: { sid: string; name: string; campId: string; points: number }[] = [
+  { sid: 's13', name: '体验学员', campId: 'camp1', points: 100 },
+  { sid: 's13', name: '体验学员', campId: 'camp2', points: 150 },
+  { sid: 's1', name: '李明', campId: 'camp1', points: 60 },
+  { sid: 's2', name: '王丽', campId: 'camp1', points: 90 },
+  { sid: 's3', name: '张伟', campId: 'camp1', points: 70 },
+  { sid: 's4', name: '赵静', campId: 'camp1', points: 70 },
+  { sid: 's5', name: '周杰', campId: 'camp1', points: 50 },
+  { sid: 's6', name: '吴磊', campId: 'camp1', points: 90 },
+  { sid: 's10', name: '孙悟空', campId: 'camp1', points: 20 },
+  { sid: 's14', name: '林悦', campId: 'camp1', points: 80 },
+  { sid: 's15', name: '高翔', campId: 'camp1', points: 60 },
+  { sid: 's16', name: '何雨', campId: 'camp1', points: 70 },
+  { sid: 's17', name: '马超', campId: 'camp1', points: 80 },
+  { sid: 's6', name: '吴磊', campId: 'camp2', points: 90 },
+  { sid: 's7', name: '郑爽', campId: 'camp2', points: 80 },
+  { sid: 's8', name: '王强', campId: 'camp2', points: 60 },
+  { sid: 's10', name: '孙悟空', campId: 'camp2', points: 30 },
+  { sid: 's12', name: '陈曦', campId: 'camp2', points: 50 },
+  { sid: 's17', name: '马超', campId: 'camp2', points: 80 },
+  { sid: 's18', name: '唐宁', campId: 'camp2', points: 100 },
+  { sid: 's19', name: '郭峰', campId: 'camp2', points: 40 },
+  { sid: 's20', name: '苏晴', campId: 'camp2', points: 60 },
+];
+demoPointSeeds.forEach((d, i) => {
+  MOCK_MANUAL_SCORES.push({
+    id: `ms_point_${i + 1}`,
+    studentId: d.sid,
+    points: d.points,
+    reason: '开营前线下打卡补录（饮食 + 运动）',
+    dietitianName: '王营养师',
+    createdAt: iso(-2, '09:20:00'),
+    date: dateStr(-8),
+    campId: d.campId,
+  });
+});
