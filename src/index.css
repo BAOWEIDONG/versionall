@@ -1,0 +1,253 @@
+@import "tailwindcss";
+@import "vant/lib/index.css" layer(base);
+
+@layer base {
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: pan-y;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    overflow-x: hidden;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* 薄荷绿底 + 柔和光晕交叠：让液态玻璃模糊透出纹理，纯色底会变脏灰 */
+    background-color: #f2faf6;
+    background-image:
+      radial-gradient(ellipse 60% 42% at 18% 0%, rgba(7, 193, 96, 0.12), transparent 65%),
+      radial-gradient(ellipse 55% 40% at 88% 16%, rgba(22, 119, 255, 0.07), transparent 65%),
+      radial-gradient(ellipse 70% 55% at 50% 100%, rgba(255, 151, 106, 0.12), transparent 70%),
+      radial-gradient(ellipse 50% 30% at 10% 85%, rgba(7, 193, 96, 0.08), transparent 60%),
+      linear-gradient(180deg, #f0fbf5 0%, #f8faf9 45%, #ffffff 100%);
+    background-attachment: fixed;
+  }
+}
+
+/* Vant 主题对齐（浮层 + 组件） */
+:root {
+  --van-primary-color: #07C160;
+  --van-success-color: #07C160;
+}
+
+/* ===== Vant 组件样式覆盖（贴近现有设计）===== */
+
+/* Button (van-button)：图标+文字在 __text 内一行排列、不换行、带间距 */
+.custom-button .van-button__text {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+/* Input (van-field)：还原 h-12 / rounded-xl / gray-200 边框 / 绿色聚焦 */
+.custom-input.van-cell {
+  box-sizing: border-box;
+  height: 48px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.custom-input .van-field__body { width: 100%; height: 100%; }
+.custom-input .van-field__control {
+  height: 100%;
+  padding: 0 16px;
+  font-size: 16px;
+  color: #111827;
+}
+.custom-input .van-field__control::placeholder { color: #9ca3af; }
+.custom-input.van-cell:focus-within {
+  border-color: #07C160;
+  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.2);
+}
+.custom-input.van-cell--disabled { opacity: 0.5; }
+
+/* NavBar (van-nav-bar)：还原 h-14 / 半透明白底毛玻璃 / 标题色 */
+.custom-nav.van-nav-bar {
+  --van-nav-bar-height: 56px;
+  --van-nav-bar-title-font-size: 17px;
+  background: rgba(255, 255, 255, 0.8);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(243, 244, 246, 0.5);
+}
+.custom-nav .van-nav-bar__content { height: 56px; }
+.custom-nav .van-nav-bar__title { color: #111827; font-weight: 500; }
+.custom-nav .van-nav-bar__left,
+.custom-nav .van-nav-bar__right { padding: 0 8px; }
+
+/* 玻璃卡片：轻量半透白卡（无背景模糊，保证滚动流畅；液态模糊只留给底部菜单栏） */
+.glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 24px -8px rgba(15, 23, 42, 0.08);
+}
+
+/* 中部胶囊分段控件：醒目填充风格（打卡页/趣味活动页等所有 Tab 切换共用） */
+.seg-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 5px;
+  border-radius: 16px;
+  background: #EEF0F3;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.seg-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 0;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: transparent;
+  transition: all 0.25s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+.seg-tab.active {
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  transform: scale(1.03);
+}
+.seg-tab-green.active { color: #07C160; }
+.seg-tab-orange.active { color: #FF976A; }
+.seg-tab-blue.active { color: #1677FF; }
+
+/* 玻璃主按钮（立即领取等）：白色高光边 + 弥散阴影 */
+.btn-glass-orange {
+  background: linear-gradient(90deg, #fbbf24, #f97316);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 18px -4px rgba(249, 115, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+/* Safe area utilities */
+.pb-safe {
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+}
+
+/* Tabbar (van-tabbar)：iOS 液态玻璃悬浮胶囊 + 安卓兼容回退 */
+.custom-tabbar.van-tabbar {
+  --van-tabbar-z-index: 50;
+  --van-tabbar-background-color: transparent;
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+/* 液态玻璃模式（body.liquid-glass 时生效；打印时移除该 class 即回到普通 Tabbar） */
+body.liquid-glass .custom-tabbar.van-tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  width: calc(100% - 32px);
+  max-width: 400px;
+  height: 62px;
+  padding-bottom: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 12px 32px -12px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  /* 基础半透明：即使 @supports 不生效，也能透出背景 */
+  background: rgba(255, 255, 255, 0.18);
+}
+/* 真液态玻璃（支持 backdrop-filter 的设备）：高透明 + 强模糊 */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  body.liquid-glass .custom-tabbar.van-tabbar {
+    background: rgba(255, 255, 255, 0.06);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    backdrop-filter: blur(32px) saturate(180%);
+  }
+}
+/* 安卓老机无 backdrop-filter：用渐变高光模拟玻璃反光，保持半透明 */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  body.liquid-glass .custom-tabbar.van-tabbar {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0.15) 100%);
+  }
+}
+.custom-tabbar .van-tabbar-item {
+  color: #9ca3af;
+  background: transparent !important;
+  transition: color 0.25s ease;
+}
+.custom-tabbar .van-tabbar-item__icon {
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.custom-tabbar .van-tabbar-item--active {
+  color: #07C160;
+  background: transparent !important;
+}
+.custom-tabbar .van-tabbar-item--active .van-tabbar-item__icon {
+  transform: scale(1.18) translateY(-1px);
+  filter: drop-shadow(0 2px 6px rgba(7, 193, 96, 0.45));
+}
+.custom-tabbar.tabbar-orange .van-tabbar-item--active .van-tabbar-item__icon {
+  filter: drop-shadow(0 2px 6px rgba(255, 151, 106, 0.45));
+}
+.custom-tabbar .van-tabbar-item__text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  transition: color 0.25s ease;
+}
+.custom-tabbar.tabbar-orange .van-tabbar-item--active { color: #FF976A; }
+
+/* 营养师端 / 教练端：全局复用首页浅渐变。
+   登录对应角色后 <body> 挂 role-diet / role-coach，子页面根容器 flat 灰底 (#F7F8FA) 转透明，
+   让 body 的浅渐变透出到整屏，视觉与首页渐变统一；学员端不挂该类，保持原有底色。 */
+body.role-diet {
+  background-color: #FFF6EE;
+  background-image: linear-gradient(180deg, #FFF6EE 0%, #FFFDFB 100%);
+}
+body.role-coach {
+  background-color: #EDF9F1;
+  background-image: linear-gradient(180deg, #EDF9F1 0%, #FBFEFC 100%);
+}
+body.role-diet .bg-\[\#F7F8FA\],
+body.role-coach .bg-\[\#F7F8FA\] {
+  background-color: transparent !important;
+}
+
+/* 营养师/教练端：顶栏 NavBar 从半透明白降为更浅透，透出 body 浅渐变，消除顶部白色带 */
+body.role-diet .custom-nav.van-nav-bar,
+body.role-coach .custom-nav.van-nav-bar {
+  background: rgba(255, 255, 255, 0.16);
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Tabs (van-tabs)：还原下划线 tab */
+.custom-tabs.van-tabs { background: transparent; }
+.custom-tabs .van-tabs__wrap { height: 44px; background: transparent; }
+.custom-tabs .van-tabs__nav--line { box-shadow: none; background: transparent; border-bottom: 1px solid #f3f4f6; }
+.custom-tabs .van-tab { font-size: 14px; font-weight: 700; color: #6b7280; padding: 0 12px; flex: 0 0 auto; }
+.custom-tabs .van-tab--active { color: #07C160; }
+.custom-tabs .van-tabs__line { background: #07C160; height: 2px; border-radius: 2px; bottom: 0; }
+
+/* Popup (van-popup)：还原圆角白卡 */
+.custom-popup.van-popup--center { border-radius: 16px; max-width: 24rem; width: calc(100% - 2rem); }
+.custom-popup .van-popup__close-icon { color: #9ca3af; font-size: 20px; padding: 12px; }
+
+/* Checkbox (van-checkbox) */
+.custom-checkbox.van-checkbox { --van-checkbox-checked-icon-color: #07C160; --van-checkbox-size: 16px; align-items: center; }
+.custom-checkbox .van-checkbox__label { font-size: 12px; color: #9ca3af; margin-left: 6px; line-height: 1.4; }
+.custom-checkbox.cb-orange { --van-checkbox-checked-icon-color: #FF976A; }
+.custom-radio-group { display: flex; flex-wrap: wrap; gap: 16px; }
+.custom-checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Radio (van-radio) */
+.custom-radio.van-radio { --van-radio-checked-icon-color: #07C160; --van-radio-size: 16px; align-items: center; }
+.custom-radio .van-radio__label { font-size: 14px; color: #374151; margin-left: 6px; }
