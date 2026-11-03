@@ -58,11 +58,27 @@ const handlePhoneSubmit = () => {
   }
 
   error.value = '';
-  // 体验学员：首次登录写入一份完整问卷/身体基础数据，保证健康档案与报告不是空态
-  if (account.id === 's13' && !localStorage.getItem(questionnaireStorageKey('submitted', account.id))) {
+  // 体验学员：只写「草稿」做预填，首次登录仍进问卷页；用户提交后以用户填写为准。
+  // 兼容旧版本：曾把种子写进 submitted 的，若内容仍与种子一致，降级为草稿并清除 submitted，让用户重新确认/覆盖。
+  if (account.id === 's13') {
     try {
-      localStorage.setItem(questionnaireStorageKey('submitted', account.id), JSON.stringify({ formData: MOCK_QUESTIONNAIRE_S13 }));
-    } catch { /* 隐私模式忽略 */ }
+      const submittedKey = questionnaireStorageKey('submitted', account.id);
+      const draftKey = questionnaireStorageKey('draft', account.id);
+      const submittedRaw = localStorage.getItem(submittedKey);
+      if (submittedRaw) {
+        const parsed = JSON.parse(submittedRaw);
+        // 只识别旧版「自动写入的种子」（带 formData 包装）；用户自己提交的是裸 formData，
+        // 即使内容恰好等于种子也视为用户确认过，不能重置。
+        if (parsed?.formData && JSON.stringify(parsed.formData) === JSON.stringify(MOCK_QUESTIONNAIRE_S13)) {
+          localStorage.removeItem(submittedKey);
+          if (!localStorage.getItem(draftKey)) {
+            localStorage.setItem(draftKey, JSON.stringify({ formData: MOCK_QUESTIONNAIRE_S13, step: 1 }));
+          }
+        }
+      } else if (!localStorage.getItem(draftKey)) {
+        localStorage.setItem(draftKey, JSON.stringify({ formData: MOCK_QUESTIONNAIRE_S13, step: 1 }));
+      }
+    } catch { /* 隐私模式/损坏数据：忽略，走正常问卷流程 */ }
   }
   // 从 students 列表补充 gender/age 信息
   const studentInfo = store.students.find((s) => s.id === account.id);

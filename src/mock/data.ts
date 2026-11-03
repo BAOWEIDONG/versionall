@@ -1224,6 +1224,7 @@ export const DEMO_SCHEMA_VERSION = 3;
 
 /** 体验学员（s13）的入营问卷种子：首次登录自动写入本机，保证健康档案/自查问卷不是空白 */
 export const MOCK_QUESTIONNAIRE_S13 = {
+  name: '体验学员',
   gender: 'female',
   age: '30',
   height: '168',
