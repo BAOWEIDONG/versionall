@@ -6,7 +6,7 @@ import { useAppStore } from '../store/app';
 import type { View } from '../store/app';
 import { campDateRange, campDaysOf } from '../lib/camps';
 import { Card, GenderAvatar, StudentTabbar } from './ui';
-import { Activity, Coffee, Calendar, Scale, PlayCircle, LogOut, Medal, Trophy, Gift, BookOpen, MessageCircle, ChevronDown, TrendingDown, TrendingUp, Minus, Target, X } from 'lucide-vue-next';
+import { Activity, Coffee, Calendar, Scale, PlayCircle, LogOut, Medal, Trophy, Gift, BookOpen, MessageCircle, ChevronDown, TrendingDown, TrendingUp, Minus, Target, X, Sparkles } from 'lucide-vue-next';
 import { Popup as VanPopup, showToast } from 'vant';
 import { rankStudents } from '../lib/scoring';
 import { getTodayQuote } from '../lib/motivationalQuotes';
@@ -289,24 +289,61 @@ const yesterdayStr = format(new Date(Date.now() - 86400000), 'yyyy-MM-dd');
 const _dailySummaryKey = `daily_summary_${store.user?.id || 'anon'}_${todayStr}`;
 const dailySummaryDismissed = ref(!!localStorage.getItem(_dailySummaryKey));
 
+const SUMMARY_ITEMS = [
+  { key: 'breakfast' as const, label: '早餐' },
+  { key: 'lunch' as const, label: '中餐' },
+  { key: 'dinner' as const, label: '晚餐' },
+  { key: 'exercise' as const, label: '运动' },
+  { key: 'weight' as const, label: '体重' },
+];
+
 const dailySummary = computed(() => {
   if (!store.user) return null;
   // 未开始、已结束、退营、禁用状态不主动弹出（version2 PRD 2.1.1）
   if (!campActiveForStudent.value) return null;
-  const meals = new Set(campDiet.value.filter((r) => isMine(r) && r.date.startsWith(yesterdayStr)).map((r) => r.meal));
-  const exerciseMins = campEx.value
-    .filter((r) => isMine(r) && r.date.startsWith(yesterdayStr))
-    .reduce((sum, r) => sum + (r.duration || 0), 0);
+  const uid = store.user.id;
+  const myDietY = campDiet.value.filter((r) => isMine(r) && r.date.startsWith(yesterdayStr));
+  const meals = new Set(myDietY.map((r) => r.meal));
+  const exY = campEx.value.filter((r) => isMine(r) && r.date.startsWith(yesterdayStr));
+  const exerciseMins = exY.reduce((sum, r) => sum + (r.duration || 0), 0);
   const weights = campWt.value.filter((r) => isMine(r)).sort((a, b) => a.date.localeCompare(b.date));
   const yesterdayWeight = weights.filter((r) => r.date.startsWith(yesterdayStr)).pop();
-  // 昨日体重 vs 前一天最近一条
   let weightChange: number | null = null;
   if (yesterdayWeight) {
     const before = weights.filter((r) => r.date < yesterdayStr);
     const prev = before[before.length - 1];
     if (prev) weightChange = parseFloat((yesterdayWeight.weight - prev.weight).toFixed(1));
   }
-  // 昨日收到的最新一条营养师批注
+
+  // 昨日 5 项完成情况
+  const items = {
+    breakfast: meals.has('breakfast'),
+    lunch: meals.has('lunch'),
+    dinner: meals.has('dinner'),
+    exercise: exY.length > 0,
+    weight: !!yesterdayWeight,
+  };
+  const doneCount = Object.values(items).filter(Boolean).length;
+  const missing = SUMMARY_ITEMS.filter((it) => !items[it.key]).map((it) => it.label);
+
+  // 昨日新获得徽章（活动徽章按获得日期；成就为一次性）
+  const badges = activeCampId.value
+    ? store.getCampBadgeRecords(activeCampId.value).filter((b) => b.studentId === uid && b.earnedAt === yesterdayStr)
+    : [];
+
+  // 今天还需要完成的打卡项
+  const todayMeals = new Set(campDiet.value.filter((r) => isMine(r) && r.date.startsWith(todayStr)).map((r) => r.meal));
+  const todayItems = {
+    breakfast: todayMeals.has('breakfast'),
+    lunch: todayMeals.has('lunch'),
+    dinner: todayMeals.has('dinner'),
+    exercise: campEx.value.some((r) => isMine(r) && r.date.startsWith(todayStr)),
+    weight: campWt.value.some((r) => isMine(r) && r.date.startsWith(todayStr)),
+  };
+  const todayMissing = SUMMARY_ITEMS.filter((it) => !todayItems[it.key]).map((it) => it.label);
+  const todayDoneCount = 5 - todayMissing.length;
+
+  // 昨日收到的最新一条营养师/教练批注
   const comments = [
     ...campDiet.value.filter((r) => isMine(r) && r.dietitianComment && (r.dietitianCommentDate || '').startsWith(yesterdayStr)),
     ...campEx.value.filter((r) => isMine(r) && r.coachComment && (r.coachCommentDate || '').startsWith(yesterdayStr)),
@@ -314,9 +351,13 @@ const dailySummary = computed(() => {
   ].sort((a, b) => ((b as any).dietitianCommentDate || (b as any).coachCommentDate || '').localeCompare((a as any).dietitianCommentDate || (a as any).coachCommentDate || ''));
   const latestComment = comments[0] || null;
 
-  const didSomething = meals.size > 0 || exerciseMins > 0 || !!yesterdayWeight;
-  if (!didSomething && !latestComment) return null;
-  return { mealCount: meals.size, exerciseMins, weightChange, comment: latestComment };
+  const didSomething = doneCount > 0 || badges.length > 0 || !!latestComment;
+  if (!didSomething) return null;
+  return {
+    items, doneCount, missing, badges, todayMissing, todayDoneCount,
+    dateLabel: format(new Date(`${yesterdayStr}T00:00:00`), 'M月d日'),
+    mealCount: meals.size, exerciseMins, weightChange, comment: latestComment,
+  };
 });
 
 const showDailySummary = computed(() => dailySummary.value !== null && !dailySummaryDismissed.value);
@@ -791,8 +832,8 @@ onActivated(() => {
     <Teleport to="body">
       <Transition name="summary-fade">
         <div v-if="showDailySummary" class="fixed inset-0 z-[999] bg-black/40 flex items-end justify-center" @click.self="dismissDailySummary">
-          <div class="w-full max-w-md bg-white rounded-t-3xl p-6 pb-8 summary-slide-up">
-            <div class="flex items-center justify-between mb-4">
+          <div class="w-full max-w-md bg-white rounded-t-3xl flex flex-col max-h-[88dvh] summary-slide-up">
+            <div class="flex items-center justify-between px-6 pt-6 pb-3 shrink-0">
               <h3 class="text-base font-black text-gray-900 flex items-center gap-2">
                 <div class="w-8 h-8 rounded-full bg-gradient-to-br from-[#07C160] to-teal-500 flex items-center justify-center">
                   <BookOpen class="w-4 h-4 text-white" />
@@ -804,40 +845,91 @@ onActivated(() => {
               </button>
             </div>
 
-            <!-- 三项数据 -->
-            <div class="grid grid-cols-3 gap-2 mb-4">
-              <div class="bg-orange-50 rounded-xl p-3 text-center">
-                <Coffee class="w-4 h-4 text-[#FF976A] mx-auto mb-1" />
-                <div class="text-lg font-black text-gray-900">{{ dailySummary!.mealCount }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">餐</span></div>
-                <div class="text-[10px] text-gray-500">饮食打卡</div>
-              </div>
-              <div class="bg-green-50 rounded-xl p-3 text-center">
-                <Activity class="w-4 h-4 text-[#07C160] mx-auto mb-1" />
-                <div class="text-lg font-black text-gray-900">{{ dailySummary!.exerciseMins }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">分钟</span></div>
-                <div class="text-[10px] text-gray-500">运动时长</div>
-              </div>
-              <div class="bg-blue-50 rounded-xl p-3 text-center">
-                <Scale class="w-4 h-4 text-[#1677FF] mx-auto mb-1" />
-                <div v-if="dailySummary!.weightChange !== null" :class="['text-lg font-black', dailySummaryWeightColor]">
-                  {{ dailySummary!.weightChange > 0 ? '+' : '' }}{{ dailySummary!.weightChange }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">kg</span>
+            <div class="flex-1 min-h-0 overflow-y-auto px-6 pb-3">
+              <!-- 昨日打卡明细：完成了哪些、缺哪些 -->
+              <div class="rounded-2xl bg-gray-50 p-3 mb-3">
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-xs font-bold text-gray-700">昨天 {{ dailySummary!.dateLabel }} 打卡</span>
+                  <span :class="['text-xs font-black', dailySummary!.doneCount === 5 ? 'text-[#07C160]' : 'text-[#FF976A]']">{{ dailySummary!.doneCount }}/5</span>
                 </div>
-                <div v-else class="text-lg font-black text-gray-300">--</div>
-                <div class="text-[10px] text-gray-500">体重变化</div>
+                <div class="grid grid-cols-5 gap-1.5">
+                  <div v-for="it in SUMMARY_ITEMS" :key="it.key"
+                    :class="['flex flex-col items-center py-1.5 rounded-lg', dailySummary!.items[it.key] ? 'bg-[#07C160]/10' : 'bg-gray-200/60']">
+                    <span :class="['text-[10px]', dailySummary!.items[it.key] ? 'text-gray-700' : 'text-gray-400']">{{ it.label }}</span>
+                    <span :class="['text-sm font-bold leading-none mt-0.5', dailySummary!.items[it.key] ? 'text-[#07C160]' : 'text-gray-400']">
+                      {{ dailySummary!.items[it.key] ? '✓' : '✕' }}
+                    </span>
+                  </div>
+                </div>
+                <p v-if="dailySummary!.missing.length > 0" class="text-[10px] text-gray-400 mt-2">
+                  昨天未完成：<span class="text-[#FF976A] font-medium">{{ dailySummary!.missing.join('、') }}</span>
+                </p>
+                <p v-else class="text-[10px] text-[#07C160] mt-2 font-medium">昨天 5 项全部完成 🎉</p>
+              </div>
+
+              <!-- 三项数据 -->
+              <div class="grid grid-cols-3 gap-2 mb-3">
+                <div class="bg-orange-50 rounded-xl p-3 text-center">
+                  <Coffee class="w-4 h-4 text-[#FF976A] mx-auto mb-1" />
+                  <div class="text-lg font-black text-gray-900">{{ dailySummary!.mealCount }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">餐</span></div>
+                  <div class="text-[10px] text-gray-500">饮食打卡</div>
+                </div>
+                <div class="bg-green-50 rounded-xl p-3 text-center">
+                  <Activity class="w-4 h-4 text-[#07C160] mx-auto mb-1" />
+                  <div class="text-lg font-black text-gray-900">{{ dailySummary!.exerciseMins }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">分钟</span></div>
+                  <div class="text-[10px] text-gray-500">运动时长</div>
+                </div>
+                <div class="bg-blue-50 rounded-xl p-3 text-center">
+                  <Scale class="w-4 h-4 text-[#1677FF] mx-auto mb-1" />
+                  <div v-if="dailySummary!.weightChange !== null" :class="['text-lg font-black', dailySummaryWeightColor]">
+                    {{ dailySummary!.weightChange > 0 ? '+' : '' }}{{ dailySummary!.weightChange }}<span class="text-[10px] font-normal text-gray-400 ml-0.5">kg</span>
+                  </div>
+                  <div v-else class="text-lg font-black text-gray-300">--</div>
+                  <div class="text-[10px] text-gray-500">体重变化</div>
+                </div>
+              </div>
+
+              <!-- 昨天新获得的徽章 -->
+              <div v-if="dailySummary!.badges.length > 0" class="rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 border border-orange-100 p-3 mb-3">
+                <div class="text-[11px] font-bold text-[#FF976A] mb-1.5 flex items-center gap-1">
+                  <Sparkles class="w-3 h-3" /> 昨天新获得 {{ dailySummary!.badges.length }} 枚徽章
+                </div>
+                <div class="flex flex-wrap gap-1.5">
+                  <span v-for="b in dailySummary!.badges" :key="b.id"
+                    class="inline-flex items-center gap-1 text-[10px] bg-white px-2 py-1 rounded-full border border-orange-100 text-gray-700">
+                    <span class="text-sm">{{ b.icon }}</span>{{ b.badgeName }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 今天要做 -->
+              <div class="rounded-2xl border border-[#07C160]/20 bg-[#07C160]/5 p-3 mb-3">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="text-[11px] font-bold text-[#07C160]">今天已完成 {{ dailySummary!.todayDoneCount }}/5</span>
+                  <span class="text-[10px] text-gray-400">继续加油</span>
+                </div>
+                <div v-if="dailySummary!.todayMissing.length > 0" class="flex flex-wrap gap-1.5">
+                  <span v-for="m in dailySummary!.todayMissing" :key="m"
+                    class="text-[10px] bg-white px-2 py-1 rounded-full text-[#FF976A] border border-orange-100">待完成 {{ m }}</span>
+                </div>
+                <p v-else class="text-[11px] text-[#07C160]">今天 5 项已全部完成，继续保持！</p>
+              </div>
+
+              <!-- 营养师一句话 -->
+              <div v-if="dailySummary!.comment" class="bg-white border border-[#07C160]/15 rounded-xl p-3">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <MessageCircle class="w-3 h-3 text-[#07C160]" />
+                  <span class="text-[10px] font-bold text-[#07C160]">{{ (dailySummary!.comment as any).dietitianName || (dailySummary!.comment as any).coachName || '老师' }} 昨天对你说</span>
+                </div>
+                <p class="text-xs text-gray-700 leading-relaxed">{{ (dailySummary!.comment as any).dietitianComment || (dailySummary!.comment as any).coachComment }}</p>
               </div>
             </div>
 
-            <!-- 营养师一句话 -->
-            <div v-if="dailySummary!.comment" class="bg-[#07C160]/5 border border-[#07C160]/15 rounded-xl p-3 mb-4">
-              <div class="flex items-center gap-1.5 mb-1">
-                <MessageCircle class="w-3 h-3 text-[#07C160]" />
-                <span class="text-[10px] font-bold text-[#07C160]">{{ (dailySummary!.comment as any).dietitianName || (dailySummary!.comment as any).coachName || '老师' }} 昨天对你说</span>
-              </div>
-              <p class="text-xs text-gray-700 leading-relaxed line-clamp-2">{{ (dailySummary!.comment as any).dietitianComment || (dailySummary!.comment as any).coachComment }}</p>
+            <div class="shrink-0 px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-gray-100 bg-white">
+              <button @click="dismissDailySummary" class="w-full py-3 rounded-xl bg-gradient-to-r from-[#07C160] to-[#06b558] text-white text-sm font-bold active:scale-[0.98] transition-transform shadow-lg shadow-[#07C160]/20">
+                开启今天 ->
+              </button>
             </div>
-
-            <button @click="dismissDailySummary" class="w-full py-3 rounded-xl bg-gradient-to-r from-[#07C160] to-[#06b558] text-white text-sm font-bold active:scale-[0.98] transition-transform shadow-lg shadow-[#07C160]/20">
-              开启今天 ->
-            </button>
           </div>
         </div>
       </Transition>
