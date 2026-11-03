@@ -34,7 +34,7 @@ const error = ref('');
 
 const formData = reactive({
   name: store.user?.name || '',
-  gender: store.user?.gender || '',
+  gender: 'male', // 默认选中男，用户可改
   age: store.user?.age ? String(store.user.age) : '',
   height: '',
   weight: '',
@@ -46,14 +46,14 @@ const formData = reactive({
   foodAllergyDetails: '',
   wakeTime: '',
   sleepTime: '',
-  sleepDuration: '',
+  sleepDuration: '7.5',
   drinkAlcohol: '',
   smoke: '',
   snack: '',
-  dailyWater: '',
-  exerciseFrequency: '',
+  dailyWater: '1500',
+  exerciseFrequency: '3',
   exerciseTypes: [] as string[],
-  exerciseDuration: '',
+  exerciseDuration: '45',
   medicalReports: [] as { url: string; type: 'image' | 'pdf'; name?: string }[],
 });
 
