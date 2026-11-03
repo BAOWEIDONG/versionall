@@ -82,3 +82,18 @@ export function campDaysOf(camp: { startDate?: string; endDate?: string } | null
   }
   return DEFAULT_CAMP_DAYS;
 }
+/**
+ * 报告/统计用天数：已结束营期=整期天数；进行中营期=开营到今天（含首日）；
+ * 避免刚开营 3 天就用 28 天做分母，完成率显示成 4%。
+ */
+export function elapsedCampDays(camp: { status?: string; startDate?: string; endDate?: string } | null | undefined): number {
+  const full = campDaysOf(camp as { startDate?: string; endDate?: string });
+  if (!camp?.startDate) return full;
+  if (camp.status === 'ended') return full;
+  const start = new Date(`${camp.startDate.slice(0, 10)}T00:00:00`);
+  const now = new Date();
+  const today = new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T00:00:00`);
+  if (isNaN(start.getTime())) return full;
+  const elapsed = Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
+  return Math.max(1, Math.min(elapsed, full));
+}

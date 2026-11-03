@@ -56,6 +56,8 @@ interface Entry {
   summary: string;
   ownerRole: 'dietitian' | 'coach';
   annotations: Annotation[];
+  /** 是否已处理：有批注，或已评分（与营养师/教练待批注口径一致） */
+  annotated: boolean;
 }
 
 const campStudents = computed(() => (activeCampId.value ? store.getStudentsByCamp(activeCampId.value) : []));
@@ -72,27 +74,33 @@ const annotationsOf = (rec: any, role: 'dietitian' | 'coach'): Annotation[] => {
   return list;
 };
 
+/** 与营养师/教练端「待批注」同一口径：有批注文本或已评分都算已处理 */
+const isAnnotated = (rec: any, role: 'dietitian' | 'coach'): boolean => {
+  if (annotationsOf(rec, role).length > 0) return true;
+  return role === 'dietitian' ? rec.dietitianScore != null : rec.coachScore != null;
+};
+
 const entries = computed<Entry[]>(() => {
   if (!activeCampId.value) return [];
   const list: Entry[] = [];
   for (const r of store.getCampDietRecords(activeCampId.value)) {
     if (!inRange(r.date)) continue;
-    list.push({ id: r.id, type: 'diet', typeLabel: '饮食', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: r.description || '', ownerRole: 'dietitian', annotations: annotationsOf(r, 'dietitian') });
+    list.push({ id: r.id, type: 'diet', typeLabel: '饮食', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: r.description || '', ownerRole: 'dietitian', annotations: annotationsOf(r, 'dietitian'), annotated: isAnnotated(r, 'dietitian') });
   }
   for (const r of store.getCampWeightRecords(activeCampId.value)) {
     if (!inRange(r.date)) continue;
-    list.push({ id: r.id, type: 'weight', typeLabel: '体重', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: `${r.weight} kg`, ownerRole: 'dietitian', annotations: annotationsOf(r, 'dietitian') });
+    list.push({ id: r.id, type: 'weight', typeLabel: '体重', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: `${r.weight} kg`, ownerRole: 'dietitian', annotations: annotationsOf(r, 'dietitian'), annotated: isAnnotated(r, 'dietitian') });
   }
   for (const r of store.getCampExerciseRecords(activeCampId.value)) {
     if (!inRange(r.date)) continue;
-    list.push({ id: r.id, type: 'exercise', typeLabel: '运动', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: `${r.type} · ${r.duration} 分钟`, ownerRole: 'coach', annotations: annotationsOf(r, 'coach') });
+    list.push({ id: r.id, type: 'exercise', typeLabel: '运动', studentId: r.studentId || '', studentName: studentName(r.studentId || ''), date: r.date, summary: `${r.type} · ${r.duration} 分钟`, ownerRole: 'coach', annotations: annotationsOf(r, 'coach'), annotated: isAnnotated(r, 'coach') });
   }
   return list;
 });
 
 const overview = computed(() => {
   const required = entries.value.length;
-  const annotated = entries.value.filter((e) => e.annotations.length > 0).length;
+  const annotated = entries.value.filter((e) => e.annotated).length;
   return { required, annotated, pending: required - annotated, rate: required ? Math.round((annotated / required) * 100) : 0 };
 });
 
@@ -105,7 +113,7 @@ const typeOverview = computed(() => {
   ] as const;
   return defs.map((d) => {
     const list = entries.value.filter((e) => e.type === d.key);
-    const annotated = list.filter((e) => e.annotations.length > 0).length;
+    const annotated = list.filter((e) => e.annotated).length;
     return { ...d, required: list.length, annotated, pending: list.length - annotated, rate: list.length ? Math.round((annotated / list.length) * 100) : 0 };
   });
 });
@@ -142,20 +150,20 @@ const studentRows = computed(() => campStudents.value.map((s) => {
   const list = entries.value.filter((e) => e.studentId === s.id);
   const by = (t: Entry['type']) => {
     const sub = list.filter((e) => e.type === t);
-    return { required: sub.length, annotated: sub.filter((e) => e.annotations.length > 0).length };
+    return { required: sub.length, annotated: sub.filter((e) => e.annotated).length };
   };
   return {
     ...s,
     dietAnn: by('diet'),
     weightAnn: by('weight'),
     exerciseAnn: by('exercise'),
-    unannotated: list.filter((e) => e.annotations.length === 0).length,
+    unannotated: list.filter((e) => !e.annotated).length,
   };
 }).sort((a, b) => b.unannotated - a.unannotated));
 
 // ─── 覆盖学员：范围内至少有一条已被批注的学员 ───
 const coveredStudents = computed(() => {
-  const ids = new Set(entries.value.filter((e) => e.annotations.length > 0).map((e) => e.studentId));
+  const ids = new Set(entries.value.filter((e) => e.annotated).map((e) => e.studentId));
   return { covered: ids.size, total: campStudents.value.length };
 });
 

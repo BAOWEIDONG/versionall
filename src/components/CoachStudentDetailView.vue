@@ -13,11 +13,17 @@ import { Popup as VanPopup, showToast } from 'vant';
 import { formatDateTime } from '../lib/utils';
 import { useDateGrouping } from '../composables/useDateGrouping';
 import type { ExerciseRecord } from '../types';
-import { MOCK_METRIC_VALUES, MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { MOCK_METRIC_VALUES, metricValuesFor } from '../mock/data';
 import { buildMedicalData, isValueOutOfRange, type MedicalCategory, type Indicator } from '../lib/medicalData';
 
 const store = useAppStore();
-const student = computed(() => MOCK_STUDENTS.find(s => s.id === store.selectedStudentId));
+const student = computed(() => {
+  const id = store.selectedStudentId;
+  if (!id) return undefined;
+  return store.students.find((s) => s.id === id)
+    || MOCK_STUDENTS.find((s) => s.id === id)
+    || (() => { const a = store.accounts.find((x) => x.id === id); return a ? { id: a.id, name: a.name, phone: a.phone, age: undefined, gender: undefined } : undefined; })();
+});
 
 // ─── 营期切换 ───
 const studentCamps = computed(() => store.selectedStudentId ? store.getStudentCamps(store.selectedStudentId) : []);
@@ -41,6 +47,14 @@ watch(() => store.selectedStudentId, (id) => {
 
 watch(selectedCampId, (newId) => {
   store.detailSelectedCampId = newId || null;
+});
+
+// 同一学员从不同营期再次进入（KeepAlive 命中、studentId 未变）时，按首页当前营期重新对齐
+onActivated(() => {
+  const ctx = store.detailSelectedCampId || store.selectedCampId;
+  if (ctx && studentCamps.value.some((c) => c.id === ctx) && ctx !== selectedCampId.value) {
+    selectedCampId.value = ctx;
+  }
 });
 
 // 按营期过滤运动记录
@@ -71,7 +85,7 @@ const {
 // 运动批注
 const exerciseCommentingId = ref<string | null>(null);
 const exerciseCommentText = ref('');
-const exerciseScore = ref<0 | 1 | 2>(1);
+const exerciseScore = ref<0 | 1 | 2 | null>(null);
 
 const EXERCISE_TEMPLATES = [
   '运动强度很好，继续保持！',
@@ -111,15 +125,16 @@ const startExerciseComment = (record: ExerciseRecord) => {
   exerciseCommentingId.value = record.id;
   // 单一批注：预填当前共享批注（不管谁写的都是同一条，共同编辑）
   exerciseCommentText.value = recordComments(record).find((c) => c.role === 'coach')?.text || '';
-  exerciseScore.value = (record.coachScore ?? 1) as 0 | 1 | 2;
+  exerciseScore.value = (record.coachScore ?? null) as 0 | 1 | 2 | null;
 };
 const cancelExerciseComment = () => {
   if (exerciseCommentingId.value) releaseLock('exercise', exerciseCommentingId.value);
   exerciseCommentingId.value = null;
   exerciseCommentText.value = '';
-  exerciseScore.value = 1;
+  exerciseScore.value = null;
 };
 const handleSaveExerciseComment = (recordId: string) => {
+  if (!exerciseCommentText.value.trim()) { showToast('请输入批注内容'); return; }
   store.addRecordComment('exercise', recordId, {
     id: `cc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     role: 'coach',
@@ -128,7 +143,8 @@ const handleSaveExerciseComment = (recordId: string) => {
     date: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
   });
   store.updateExerciseRecord(recordId, {
-    coachScore: exerciseScore.value,
+    // 只有显式选分才改分，写批注不顺手送分
+    ...(exerciseScore.value !== null ? { coachScore: exerciseScore.value } : {}),
     // 新批注/新评分需重置已读，学员端才会亮"新批注"并计入未读数（与营养师批注口径一致）
     commentRead: false,
   });
@@ -174,7 +190,7 @@ const getPrevWeight = (rec: { id: string }): number | null => {
 // ─── Medical tab (read-only) ───
 const getStudentMetrics = (studentId?: string) => {
   if (!studentId) return MOCK_METRIC_VALUES;
-  return MOCK_STUDENT_METRIC_VALUES[studentId] || MOCK_METRIC_VALUES;
+  return metricValuesFor(studentId, selectedCampId.value) || MOCK_METRIC_VALUES;
 };
 const medicalData = ref<MedicalCategory[]>(JSON.parse(JSON.stringify(buildMedicalData(store.metricConfigs, getStudentMetrics(student.value?.id), student.value?.gender))));
 const collapsedCats = ref<Set<string>>(new Set());
@@ -192,17 +208,19 @@ watch(() => student.value?.id, () => {
 
 // ─── Questionnaire tab (read-only) ───
 const qData = ref<any>(null);
-onMounted(() => {
-  const saved = localStorage.getItem(questionnaireStorageKey('submitted', store.selectedStudentId || 'none')) || localStorage.getItem(questionnaireStorageKey('draft', store.selectedStudentId || 'none'));
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      qData.value = parsed.formData || parsed;
-    } catch (e) {
-      // ignore
-    }
-  }
-});
+const loadQuestionnaire = (studentId?: string | null) => {
+  qData.value = null;
+  const saved = localStorage.getItem(questionnaireStorageKey('submitted', studentId || 'none'))
+    || localStorage.getItem(questionnaireStorageKey('draft', studentId || 'none'));
+  if (!saved) return;
+  try {
+    const parsed = JSON.parse(saved);
+    qData.value = parsed.formData || parsed;
+  } catch { /* 问卷数据损坏时保持空态 */ }
+};
+// KeepAlive 下切换学员不会重新 mount，必须按 studentId 重新加载
+watch(() => store.selectedStudentId, (id) => loadQuestionnaire(id), { immediate: true });
+onActivated(() => loadQuestionnaire(store.selectedStudentId));
 const openReport = (r: any) => {
   if (r.type === 'pdf') window.open(r.url, '_blank');
   else store.openImagePreview([r.url], 0);
@@ -400,6 +418,12 @@ onActivated(consumePendingAnnotation);
                         @click="exerciseScore = 0"
                       >
                         0 (未达标)
+                      </button>
+                      <button
+                        :class="['px-3 py-1 rounded-md text-xs font-bold transition-colors', exerciseScore === null ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-900']"
+                        @click="exerciseScore = null"
+                      >
+                        暂不计分
                       </button>
                     </div>
                   </div>

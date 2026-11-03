@@ -2,12 +2,12 @@
 import { computed, ref } from 'vue';
 import { useAppStore } from '../store/app';
 import { useDietitianCounts } from '../lib/dietitianCounts';
-import { campDaysOf } from '../lib/camps';
+import { campDaysOf, elapsedCampDays } from '../lib/camps';
 import { useDeferred } from '../composables/useDeferred';
 import { NavBar, Card, ChartRulePopup } from './ui';
 import { BarChart3, TrendingDown, Users, Activity, ChevronRight, Download, UserCheck, Building2, FileText, Settings, Flame } from 'lucide-vue-next';
 import { Tabbar as VanTabbar, TabbarItem as VanTabbarItem } from 'vant';
-import { MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { metricValuesFor } from '../mock/data';
 import { generateDietitianSummary } from '../lib/campReport';
 import { exportReport } from '../lib/exportPDF';
 import type { DietitianCampSummary } from '../types';
@@ -18,7 +18,8 @@ const { unannotatedCount, fulfillmentPendingCount } = useDietitianCounts();
 
 // ─── 营期：仅展示当前营期，由首页全局营期控制（无本地切换） ───
 const selectedCamp = computed(() => store.selectedCampId ? store.camps.find((c) => c.id === store.selectedCampId) : null);
-const campDays = computed(() => campDaysOf(selectedCamp.value));
+// 进行中营期按开营到今天计算，与学员端报告口径一致
+const campDays = computed(() => selectedCamp.value ? elapsedCampDays(selectedCamp.value) : campDaysOf(selectedCamp.value));
 
 // 按当前营期过滤学员和记录
 const campStudents = computed(() => store.selectedCampId ? store.getStudentsByCamp(store.selectedCampId) : store.getAllStudents());
@@ -26,13 +27,21 @@ const campDietRecords = computed(() => store.selectedCampId ? store.getCampDietR
 const campExerciseRecords = computed(() => store.selectedCampId ? store.getCampExerciseRecords(store.selectedCampId) : store.exerciseRecords);
 const campWeightRecords = computed(() => store.selectedCampId ? store.getCampWeightRecords(store.selectedCampId) : store.weightRecords);
 
+// 营期级体测数据：进行中的营期只取营前值，避免把第一期结营值带进来
+const campMetricValues = computed(() => {
+  const cid = store.selectedCampId;
+  const out: Record<string, Record<string, import('../lib/medicalData').MetricValue>> = {};
+  campStudents.value.forEach((s) => { out[s.id] = metricValuesFor(s.id, cid); });
+  return out;
+});
+
 // 生成结营统计（使用营期过滤后的数据）
 // 首次进入全校聚合较慢：用 useDeferred 延迟到首帧后空闲计算，先出骨架屏，避免阻塞首绘
 const { data: summary, done: summaryReady } = useDeferred<DietitianCampSummary>(() =>
   generateDietitianSummary(
     campStudents.value,
     store.metricConfigs,
-    MOCK_STUDENT_METRIC_VALUES,
+    campMetricValues.value,
     campDietRecords.value,
     campExerciseRecords.value,
     campWeightRecords.value,

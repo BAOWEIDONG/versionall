@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onActivated } from 'vue';
 import { addDays, format, subDays } from 'date-fns';
 import { useAppStore } from '../store/app';
 import { NavBar, Card } from './ui';
@@ -14,6 +14,13 @@ const campStudents = computed(() => (store.selectedCampId ? store.getStudentsByC
 const todayStr = format(new Date(), 'yyyy-MM-dd');
 const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 const dateStr = ref(store.attendanceBoardDate || yesterday);
+// 日期与全局同步：首页「昨天/今天」进入时生效；页面内翻天后也回写，KeepAlive 再进入不会停在上次日期
+watch(dateStr, (v) => { store.attendanceBoardDate = v; });
+onActivated(() => {
+  if (store.attendanceBoardDate && store.attendanceBoardDate !== dateStr.value) {
+    dateStr.value = store.attendanceBoardDate;
+  }
+});
 const isToday = computed(() => dateStr.value === todayStr);
 const isYesterday = computed(() => dateStr.value === yesterday);
 const setQuickDate = (kind: 'yesterday' | 'today') => {
@@ -125,7 +132,7 @@ const itemDefs = [
         </button>
         <label class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-100 text-sm font-bold text-gray-900">
           <CalendarDays class="w-4 h-4 text-[#FF976A]" />
-          <input v-model="dateStr" type="date" class="bg-transparent outline-none text-sm font-bold" />
+          <input v-model="dateStr" type="date" :min="selectedCamp?.startDate || undefined" :max="todayStr" class="bg-transparent outline-none text-sm font-bold" />
         </label>
         <button :disabled="!canNext" :class="['w-8 h-8 rounded-full flex items-center justify-center', canNext ? 'bg-gray-100 text-gray-700 active:bg-gray-200' : 'bg-gray-50 text-gray-300']" @click="shiftDay(1)">
           <ChevronRight class="w-4 h-4" />

@@ -349,7 +349,7 @@ const rankNumberCls = (rank: number) =>
         <div class="text-sm text-gray-700 space-y-3 leading-relaxed">
           <p class="font-medium">本期健康训练营为期{{ store.getCampDays(store.user?.id || '') || 28 }}天：</p>
           <p><span class="font-bold text-gray-900">饮食打卡：</span>饮食按一日三餐打卡，营养师对每餐进行评分（+2=较好落实计划 / +1=整体尚可但有改进空间 / 0=明显偏离计划），未批注不计分，单日饮食最高6分。</p>
-          <p><span class="font-bold text-gray-900">运动打卡：</span>每日完成单次40分钟以上运动得1分基础分；营养师评分直接加分：+2（到位）再得2分，+1（尚可）再得1分。</p>
+          <p><span class="font-bold text-gray-900">运动打卡：</span>每日完成单次40分钟以上运动得1分基础分；教练评分直接加分：+2（到位）再得2分，+1（尚可）再得1分。</p>
           <p>所有打卡积分累计后排名，积分越高名次越靠前，同分并列，对应名次均可兑换礼品，并列者享受同等激励。</p>
         </div>
       </div>

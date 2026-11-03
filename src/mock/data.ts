@@ -390,8 +390,9 @@ for (let i = -(PAST_DAYS_S8 - 1); i <= 0; i++) {
 
 // s12 (camp2)：演示用——每天只完成部分打卡。偶数天补全 5 项(算「打卡全部完成」)，奇数天仅 早餐+运动 2 项(算「打卡」但不算全部完成)
 // 目的：让学员结营概况里「打卡率(任意打卡)」与「打卡全部完成率(每天完成所有项目)」出现可见差异
-const S12_RANGE_END = 9; // 周期 -9..+9，共 19 个打卡日(9 天全完成 + 10 天部分)
-for (let i = -(S12_RANGE_END); i <= S12_RANGE_END; i++) {
+const S12_START = -2; // 第二期开营日
+const S12_RANGE_END = 0; // 只生成到昨天/今天，禁止未来日期与开营前记录
+for (let i = S12_START; i <= S12_RANGE_END; i++) {
   const idSuffix = `s12_${(i >= 0 ? 'p' : 'n') + Math.abs(i).toString().padStart(2, '0')}`;
   const complete = Math.abs(i) % 2 === 0; // 偶数天全完成
   if (complete) {
@@ -401,7 +402,7 @@ for (let i = -(S12_RANGE_END); i <= S12_RANGE_END; i++) {
       { id: `d_d_${idSuffix}`, studentId: 's12', campId: 'camp2', date: iso(i, '18:20:00'), meal: 'dinner', description: '清蒸鱼+西兰花', photos: [], dietitianScore: 2 },
     );
     MOCK_EXERCISE_RECORDS.push({ id: `e_${idSuffix}`, studentId: 's12', campId: 'camp2', date: iso(i, '19:30:00'), type: '瑜伽', duration: 40, intensity: 3, coachScore: 2 });
-    const w = parseFloat((63.0 - (i + S12_RANGE_END) * 0.06).toFixed(1)); // 随时间递减模拟减重
+    const w = parseFloat((63.0 - (i - S12_START) * 0.15).toFixed(1)); // 随时间递减模拟减重
     MOCK_WEIGHT_RECORDS.push({ id: `w_${idSuffix}`, date: iso(i, '07:10:00'), weight: w, studentId: 's12', campId: 'camp2' });
   } else {
     // 部分打卡：只打 早餐 + 运动 两项（计入打卡，但不算全部完成）
@@ -984,7 +985,8 @@ demoProfiles.forEach((p) => {
     // 体验学员：今天不预置任何打卡记录，保证登录后早餐/午餐/晚餐、运动、体重都能现场演示打卡
     if (p.id === 's13' && off === 0) continue;
     const dayKey = `${p.id}_${p.campId}_${i}`;
-    const active = demoRand(dayKey + 'active') < p.rate;
+    // 首日强制有记录：保证每位学员都有营前体重基线，首页「较开营」不为 0
+    const active = i === 0 || demoRand(dayKey + 'active') < p.rate;
     if (!active) continue;
 
     const isRecent = off >= -2;
@@ -1046,9 +1048,9 @@ demoProfiles.forEach((p) => {
     }
 
     // 体重：每 2 天一次，整体缓慢下降；最后一天保证有记录（演示趋势与结营报告）
-    if (demoRand(dayKey + 'wt') < p.rate * 0.65 || i === days - 1) {
+    if (demoRand(dayKey + 'wt') < p.rate * 0.65 || i <= 1 || i === days - 1) {
       const seed = `dw_${p.id}_${p.campId}_${i}`;
-      weight = Math.max(p.startWeight - 8, weight - 0.18 - demoRand(seed) * 0.12);
+      if (i > 0) weight = Math.max(p.startWeight - 8, weight - 0.18 - demoRand(seed) * 0.12);
       const doAnno = demoRand(dayKey + 'wtann') < p.annotate * 0.6;
       const annoText = '体重下降节奏很好，注意蛋白摄入别掉。';
       MOCK_WEIGHT_RECORDS.push({
@@ -1162,3 +1164,30 @@ demoPointSeeds.forEach((d, i) => {
     campId: d.campId,
   });
 });
+
+// ============================================================================
+//  营期级体测数据
+//  ---------------------------------------------------------------------------
+//  原 MOCK_STUDENT_METRIC_VALUES 只有 studentId 维度，多期学员会把第一期的「结营后」
+//  值带进刚开营的第二期（开营 3 天显示减重 4.5kg、误发减重徽章）。这里按营期取值：
+//  - 第一期：有完整营前/营后复测
+//  - 第二期 / 第三期：仅营前值，营后值置空（阶段性报告不展示改善、不判定减重徽章）
+// ============================================================================
+const DEMO_METRIC_CAMP1_IDS = ['s1','s2','s3','s4','s5','s6','s7','s8','s10','s12','s13','s14','s15','s16','s17','s18','s19','s20'];
+
+export function metricValuesFor(studentId: string, campId?: string | null): Record<string, MetricValue> {
+  const base = MOCK_STUDENT_METRIC_VALUES[studentId] || {};
+  if (!campId || campId === 'camp1') return base;
+  // 第二期/第三期：只保留营前值
+  const beforeOnly: Record<string, MetricValue> = {};
+  Object.entries(base).forEach(([k, v]) => { beforeOnly[k] = { beforeValue: v.beforeValue, afterValue: null }; });
+  return beforeOnly;
+}
+
+/** 某营期是否有结营复测数据（用于报告/统计判断） */
+export function hasCampMetricReview(campId?: string | null): boolean {
+  return campId === 'camp1';
+}
+
+/** 兼容：列出有营前数据的学员（第一期演示用） */
+export const DEMO_METRIC_CAMP1_STUDENT_IDS = DEMO_METRIC_CAMP1_IDS;

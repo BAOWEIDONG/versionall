@@ -7,7 +7,7 @@ import { NavBar, Card, StudentTabbar } from './ui';
 import { Activity, FileText, ClipboardList, Stethoscope, UploadCloud, X, Pencil, ChevronRight, ChevronDown } from 'lucide-vue-next';
 import { Popup as VanPopup, TimePicker as VanTimePicker } from 'vant';
 import { buildMedicalData } from '../lib/medicalData';
-import { MOCK_METRIC_VALUES, MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { MOCK_METRIC_VALUES, metricValuesFor } from '../mock/data';
 
 const store = useAppStore();
 // 入营问卷数据按当前学员隔离读取/写入，防止新账户串用他人问卷
@@ -22,7 +22,7 @@ const unreadCount = computed(() =>
 // Build medical data from dynamic configs + per-student mock values, with gender-aware abnormal detection
 const medicalData = computed(() => {
   const studentId = store.user?.id;
-  const values = (studentId && MOCK_STUDENT_METRIC_VALUES[studentId]) || MOCK_METRIC_VALUES;
+  const values = (studentId && metricValuesFor(studentId, store.selectedCampId)) || MOCK_METRIC_VALUES;
   return buildMedicalData(store.metricConfigs, values, store.user?.gender);
 });
 

@@ -2,58 +2,59 @@
 import { ref, computed } from 'vue';
 import { showToast } from 'vant';
 import { useAppStore } from '../store/app';
-import { MOCK_STUDENTS } from '../mock/data';
+import { metricValuesFor } from '../mock/data';
+import { latestOrFirstId } from '../lib/camps';
 import { NavBar, Card } from './ui';
 import { Download } from 'lucide-vue-next';
 
+// 与指标配置一致的 key；仅统计有营前+营后数值的指标
 const INDICATORS = [
-  { key: 'bmi', name: 'BMI', isIncreaseGood: false },
-  { key: 'fatRate', name: '脂肪率(%)', isIncreaseGood: false },
-  { key: 'muscle', name: '骨骼肌量(kg)', isIncreaseGood: true },
-  { key: 'visceral', name: '内脏脂肪', isIncreaseGood: false },
-  { key: 'bg', name: '空腹血糖', isIncreaseGood: false },
-  { key: 'sbp', name: '收缩压', isIncreaseGood: false },
-  { key: 'dbp', name: '舒张压', isIncreaseGood: false },
-  { key: 'tg', name: '甘油三酯', isIncreaseGood: false },
-];
-
-const MOCK_DATA = [
-  { studentId: 's1', before: { bmi: 26.5, fatRate: 24.5, muscle: 32.1, visceral: 12, bg: 5.8, sbp: 145, dbp: 92, tg: 2.1 }, after: { bmi: 24.2, fatRate: 20.1, muscle: 33.5, visceral: 9, bg: 5.2, sbp: 128, dbp: 82, tg: 1.5 } },
-  { studentId: 's2', before: { bmi: 28.1, fatRate: 30.2, muscle: 25.4, visceral: 14, bg: 6.2, sbp: 138, dbp: 88, tg: 2.5 }, after: { bmi: 26.5, fatRate: 26.8, muscle: 26.1, visceral: 11, bg: 5.6, sbp: 125, dbp: 80, tg: 1.8 } },
-  { studentId: 's3', before: { bmi: 24.5, fatRate: 22.0, muscle: 30.5, visceral: 10, bg: 5.5, sbp: 130, dbp: 85, tg: 1.9 }, after: { bmi: 23.8, fatRate: 19.5, muscle: 31.8, visceral: 8, bg: 5.1, sbp: 120, dbp: 78, tg: 1.4 } },
+  { key: 'mc_body_weight', name: '体重(kg)', isIncreaseGood: false },
+  { key: 'mc_body_fat', name: '脂肪量(kg)', isIncreaseGood: false },
+  { key: 'mc_body_skeletal', name: '骨骼肌(kg)', isIncreaseGood: true },
+  { key: 'mc_body_visceral', name: '内脏脂肪面积(cm²)', isIncreaseGood: false },
+  { key: 'mc_bs_fasting', name: '空腹血糖(mmol/L)', isIncreaseGood: false },
+  { key: 'mc_bl_tg', name: '甘油三酯(mmol/L)', isIncreaseGood: false },
 ];
 
 const store = useAppStore();
 const activeTab = ref<'individual' | 'average'>('average');
 
+const campId = computed(() => store.selectedCampId || latestOrFirstId(store.camps));
+const camp = computed(() => store.camps.find((c) => c.id === campId.value) || null);
+const students = computed(() => (campId.value ? store.getStudentsByCamp(campId.value) : []));
+
 const exportData = () => showToast('数据已导出');
 
+/** 只保留营前、营后都有数值的学员；进行中营期（无复测）自然为空 */
 const studentChanges = computed(() =>
-  MOCK_DATA.map((d) => {
-    const student = MOCK_STUDENTS.find((s) => s.id === d.studentId);
+  students.value.map((stu) => {
+    const vals = metricValuesFor(stu.id, campId.value);
     const changes: Record<string, number> = {};
+    let has = false;
     INDICATORS.forEach((ind) => {
-      const b = (d.before as any)[ind.key];
-      const a = (d.after as any)[ind.key];
-      changes[ind.key] = Number((a - b).toFixed(2));
+      const b = Number((vals as any)[ind.key]?.beforeValue);
+      const a = Number((vals as any)[ind.key]?.afterValue);
+      if ((vals as any)[ind.key]?.beforeValue != null && (vals as any)[ind.key]?.afterValue != null && Number.isFinite(b) && Number.isFinite(a)) {
+        changes[ind.key] = Number((a - b).toFixed(2));
+        has = true;
+      }
     });
-    return { name: student?.name || '未知', changes };
-  }),
+    return has ? { name: stu.name, changes } : null;
+  }).filter((x): x is { name: string; changes: Record<string, number> } => !!x),
 );
 
 const averageChanges = computed(() => {
-  const avg: Record<string, number> = {};
+  const avg: Record<string, number | null> = {};
   INDICATORS.forEach((ind) => {
-    let sum = 0;
-    studentChanges.value.forEach((sc) => {
-      sum += sc.changes[ind.key];
-    });
-    avg[ind.key] = Number((sum / studentChanges.value.length).toFixed(2));
+    const list = studentChanges.value.map((sc) => sc.changes[ind.key]).filter((v) => typeof v === 'number');
+    avg[ind.key] = list.length ? Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2)) : null;
   });
   return avg;
 });
 
-const changeMeta = (val: number, isIncreaseGood: boolean) => {
+const changeMeta = (val: number | null | undefined, isIncreaseGood: boolean) => {
+  if (val === null || val === undefined || Number.isNaN(val)) return { cls: 'text-gray-300', text: '--' };
   if (val === 0) return { cls: 'text-gray-500', text: '0' };
   const isIncrease = val > 0;
   const isGood = isIncrease ? isIncreaseGood : !isIncreaseGood;
@@ -94,13 +95,16 @@ const changeMeta = (val: number, isIncreaseGood: boolean) => {
         <div v-if="activeTab === 'average'">
           <div class="p-4 bg-gray-50 border-b border-gray-200">
             <h3 class="font-bold text-gray-900 text-sm mb-1">训练营整体改善效果</h3>
-            <p class="text-xs text-gray-500">基于 {{ MOCK_STUDENTS.length }} 名学员的结营与开营数据对比（结营后 - 开营前）</p>
+            <p class="text-xs text-gray-500">基于 {{ studentChanges.length }} 名有营前/营后复测数据的学员（{{ camp?.name || '当前营期' }}）</p>
             <div class="flex gap-4 mt-3 text-xs">
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#07C160]"></span>改善方向</span>
               <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span>恶化方向</span>
             </div>
           </div>
-          <div class="divide-y divide-gray-100">
+          <div v-if="studentChanges.length === 0" class="p-6 text-center text-xs text-gray-400">
+            当前营期尚无结营复测数据{{ camp ? '（' + camp.name + '进行中）' : '' }}，复测录入后这里会自动生成对比。
+          </div>
+          <div v-else class="divide-y divide-gray-100">
             <div v-for="ind in INDICATORS" :key="ind.key" class="flex justify-between items-center p-4 hover:bg-gray-50">
               <span class="text-sm font-medium text-gray-900">{{ ind.name }}</span>
               <div class="text-base text-right w-24">
@@ -122,6 +126,7 @@ const changeMeta = (val: number, isIncreaseGood: boolean) => {
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
+              <tr v-if="studentChanges.length === 0"><td :colspan="INDICATORS.length + 1" class="p-6 text-center text-xs text-gray-400">当前营期尚无结营复测数据</td></tr>
               <tr v-for="(sc, idx) in studentChanges" :key="idx" class="hover:bg-gray-50">
                 <td class="p-3 font-bold text-gray-900 sticky left-0 bg-white border-r border-gray-200 shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
                   {{ sc.name }}

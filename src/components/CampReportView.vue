@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onActivated } from 'vue';
+import { format } from 'date-fns';
 import { useAppStore } from '../store/app';
-import { campDateRange, campDaysOf } from '../lib/camps';
+import { campDateRange, campDaysOf, elapsedCampDays } from '../lib/camps';
 import { NavBar, Card, StudentTabbar } from './ui';
 import { Trophy, TrendingDown, TrendingUp, Activity, Target, Download, Lock, MessageCircle, Award } from 'lucide-vue-next';
 import BadgeInfoPopup from './BadgeInfoPopup.vue';
 import { Popup as VanPopup } from 'vant';
-import { MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { metricValuesFor } from '../mock/data';
 import { generateStudentReport, weightTrendToSvgPoints } from '../lib/campReport';
 import { exportReport } from '../lib/exportPDF';
 import type { StudentCampReport, MetricChange, BadgeConfig, BadgeRecord } from '../types';
@@ -32,6 +33,14 @@ watch(() => studentId.value, (id) => {
   }
 }, { immediate: true });
 
+// KeepAlive 再次进入时跟随首页当前营期，避免首页已切到第二期、报告仍停在第一期
+onActivated(() => {
+  const gid = store.selectedCampId;
+  if (gid && studentCamps.value.some((c) => c.id === gid) && gid !== selectedCampId.value) {
+    selectedCampId.value = gid;
+  }
+});
+
 // 营期信息
 const campInfo = computed(() => selectedCamp.value || store.getStudentCamp(studentId.value));
 const campDays = computed(() => {
@@ -40,6 +49,8 @@ const campDays = computed(() => {
   }
   return store.getCampDays(studentId.value);
 });
+// 报告统计天数：进行中的营期按「开营到今天」计算，避免刚开营就用 28 天做分母（完成率 4%）
+const reportDays = computed(() => elapsedCampDays(campInfo.value));
 // 学员端结营报告不再上锁：营期未结束也可随时打开查看（数据为截至当前的累计）
 const canView = computed(() => true);
 
@@ -141,11 +152,11 @@ const report = computed<StudentCampReport>(() =>
   generateStudentReport(
     { id: studentId.value, name: studentName.value, gender: studentGender.value },
     store.metricConfigs,
-    MOCK_STUDENT_METRIC_VALUES[studentId.value] || {},
+    metricValuesFor(studentId.value, selectedCampId.value || campInfo.value?.id),
     studentDiets.value,
     studentExercises.value,
     studentWeights.value,
-    campDays.value,
+    reportDays.value,
   ),
 );
 

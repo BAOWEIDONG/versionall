@@ -4,9 +4,9 @@ import { useAppStore } from '../store/app';
 import { NavBar, Card, ChartRulePopup, StudentTabbar } from './ui';
 import { Activity, TrendingDown, Dumbbell, Download, BookOpen, Trophy, ChevronRight } from 'lucide-vue-next';
 import { Popup as VanPopup } from 'vant';
-import { MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { metricValuesFor } from '../mock/data';
 import { generatePersonalJourney } from '../lib/journey';
-import { campDaysOf } from '../lib/camps';
+import { campDaysOf, elapsedCampDays } from '../lib/camps';
 import { generateStudentReport } from '../lib/campReport';
 import { exportReport } from '../lib/exportPDF';
 
@@ -22,7 +22,7 @@ const activeCampId = computed(() => {
   return active?.id || availableCamps.value[0]?.id || null;
 });
 const activeCamp = computed(() => store.camps.find((c) => c.id === activeCampId.value) || null);
-const campDays = computed(() => campDaysOf(activeCamp.value));
+const campDays = computed(() => activeCamp.value ? elapsedCampDays(activeCamp.value) : campDaysOf(activeCamp.value));
 
 // 按营期过滤打卡记录
 const campDiet = computed(() => activeCampId.value ? store.getCampDietRecords(activeCampId.value) : store.dietRecords);
@@ -65,7 +65,7 @@ const report = computed(() =>
   generateStudentReport(
     { id: studentId.value, name: studentName.value, gender: studentGender.value },
     store.metricConfigs,
-    MOCK_STUDENT_METRIC_VALUES[studentId.value] || {},
+    metricValuesFor(studentId.value, activeCampId.value),
     studentDiets.value,
     studentExercises.value,
     studentWeights.value,

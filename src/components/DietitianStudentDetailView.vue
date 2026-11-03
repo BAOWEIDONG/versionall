@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onActivated, onDeactivated, onBeforeUnmount, nextTick } from 'vue';
 import { format } from 'date-fns';
 import { useAppStore, questionnaireStorageKey } from '../store/app';
-import { MOCK_METRIC_VALUES, MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { MOCK_METRIC_VALUES, metricValuesFor } from '../mock/data';
 import { NavBar, Card, Button, ChartRulePopup, CheckinComments } from './ui';
 import { recordComments } from '../lib/comments';
 import WeightTrendChart from './ui/WeightTrendChart.vue';
@@ -29,7 +29,8 @@ const student = computed(() => store.students.find((s) => s.id === store.selecte
 // ─── 营期：学员档案页不支持本地切换，只展示「当前营期」（由首页全局营期切换控制） ───
 const studentCamps = computed(() => store.selectedStudentId ? store.getStudentCamps(store.selectedStudentId) : []);
 const selectedCamp = computed(() => {
-  const gid = store.selectedCampId; // 全局当前营期（首页营期切换器控制）
+  // 详情流营期优先（从发放中心/排行榜带过来的营期），否则跟随首页全局营期
+  const gid = store.detailSelectedCampId || store.selectedCampId;
   if (gid && studentCamps.value.some((c) => c.id === gid)) return studentCamps.value.find((c) => c.id === gid) || null;
   // 学员不在全局当前营期时，退回其 active/第一期（仅兜底展示，不提供切换）
   return studentCamps.value.find((c) => c.status === 'active') || studentCamps.value[0] || null;
@@ -128,7 +129,7 @@ const records = computed(() =>
 );
 const commentingId = ref<string | null>(null);
 const commentText = ref('');
-const commentScore = ref<0 | 1 | 2>(1);
+const commentScore = ref<0 | 1 | 2 | null>(null);
 const commentStaple = ref(false);
 const commentProtein = ref(false);
 const commentVegetable = ref(false);
@@ -249,7 +250,7 @@ const handleSaveWeightComment = (recordId: string) => {
 // Medical tab - built from dynamic metric configs + per-student mock values, gender-aware
 const getStudentMetrics = (studentId?: string) => {
   if (!studentId) return MOCK_METRIC_VALUES;
-  return MOCK_STUDENT_METRIC_VALUES[studentId] || MOCK_METRIC_VALUES;
+  return metricValuesFor(studentId, store.selectedCampId) || MOCK_METRIC_VALUES;
 };
 
 const medicalData = ref<MedicalCategory[]>(JSON.parse(JSON.stringify(buildMedicalData(store.metricConfigs, getStudentMetrics(student.value?.id), student.value?.gender))));
@@ -310,17 +311,21 @@ const consumePendingAnnotation = () => {
   }
 };
 
-onMounted(() => {
-  const saved = localStorage.getItem(questionnaireStorageKey('submitted', store.selectedStudentId || 'none')) || localStorage.getItem(questionnaireStorageKey('draft', store.selectedStudentId || 'none'));
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      qData.value = parsed.formData || parsed;
-    } catch (e) {
-      // ignore
-    }
-  }
+const loadQuestionnaire = (studentId?: string | null) => {
+  qData.value = null;
+  const saved = localStorage.getItem(questionnaireStorageKey('submitted', studentId || 'none'))
+    || localStorage.getItem(questionnaireStorageKey('draft', studentId || 'none'));
+  if (!saved) return;
+  try {
+    const parsed = JSON.parse(saved);
+    qData.value = parsed.formData || parsed;
+  } catch { /* 问卷数据损坏时保持空态 */ }
+};
+// KeepAlive 下切换学员不会重新 mount，必须按 studentId 重新加载，避免显示上一个人的问卷
+watch(() => store.selectedStudentId, (id) => loadQuestionnaire(id), { immediate: true });
+onActivated(() => loadQuestionnaire(store.selectedStudentId));
 
+onMounted(() => {
   consumePendingAnnotation();
 });
 onActivated(consumePendingAnnotation);
@@ -335,7 +340,7 @@ const startComment = (record: DietRecord) => {
   commentingId.value = record.id;
   // 单一批注：预填当前共享批注（不管谁写的都是同一条，共同编辑）
   commentText.value = myDietitianComment(record)?.text || '';
-  commentScore.value = (record.dietitianScore ?? 1) as 0 | 1 | 2;
+  commentScore.value = (record.dietitianScore ?? null) as 0 | 1 | 2 | null;
   commentStaple.value = !!record.hasStaple;
   commentProtein.value = !!record.hasProtein;
   commentVegetable.value = !!record.hasVegetable;
@@ -345,13 +350,14 @@ const cancelComment = () => {
   if (commentingId.value) releaseLock('diet', commentingId.value);
   commentingId.value = null;
   commentText.value = '';
-  commentScore.value = 1;
+  commentScore.value = null;
   commentStaple.value = false;
   commentProtein.value = false;
   commentVegetable.value = false;
 };
 
 const handleSaveComment = (recordId: string) => {
+  if (!commentText.value.trim()) { showToast('请输入批注内容'); return; }
   store.addRecordComment('diet', recordId, {
     id: `cc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     role: 'dietitian',
@@ -360,7 +366,8 @@ const handleSaveComment = (recordId: string) => {
     date: format(new Date(), 'yyyy-MM-dd HH:mm:ss'),
   });
   store.updateDietRecord(recordId, {
-    dietitianScore: commentScore.value,
+    // 只有显式选了分才改分；「暂不计分」不改动原分数，避免写批注顺手送分
+    ...(commentScore.value !== null ? { dietitianScore: commentScore.value } : {}),
     commentRead: false,
     hasStaple: commentStaple.value,
     hasProtein: commentProtein.value,
@@ -688,6 +695,12 @@ function handleDeleteManualScore(id: string) {
                       @click="commentScore = 0"
                     >
                       0 (偏离)
+                    </button>
+                    <button
+                      :class="['px-3 py-1 rounded-md text-xs font-bold transition-colors', commentScore === null ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-900']"
+                      @click="commentScore = null"
+                    >
+                      暂不计分
                     </button>
                   </div>
                 </div>

@@ -248,14 +248,14 @@ const maskPhone = (phone: string) => phone.replace(/(\d{3})\d{4}(\d{4})/, '$1***
             @click="activeTab = 'incomplete'"
           >
             <XCircle class="w-4 h-4" />
-            未打卡 ({{ filteredIncomplete.length }})
+            今日未打卡 ({{ filteredIncomplete.length }})
           </button>
           <button
             :class="['flex-1 py-2 text-sm font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5', activeTab === 'completed' ? 'bg-[#07C160] text-white shadow-sm' : 'text-gray-500 hover:text-gray-900']"
             @click="activeTab = 'completed'"
           >
             <CheckCircle class="w-4 h-4" />
-            已打卡 ({{ filteredComplete.length }})
+            今日已打卡 ({{ filteredComplete.length }})
           </button>
         </div>
 

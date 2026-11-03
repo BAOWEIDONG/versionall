@@ -5,7 +5,7 @@ import { NavBar, Card, Button } from './ui';
 import { Download, Pencil, Plus, Trash2, X, Search } from 'lucide-vue-next';
 import { Popup as VanPopup, showToast } from 'vant';
 import type { BadgeConfig, BadgeCadence, BadgeCategory, BadgeCondition } from '../types';
-import { MOCK_STUDENT_METRIC_VALUES } from '../mock/data';
+import { metricValuesFor } from '../mock/data';
 import { BADGE_CATEGORY_LABEL, BADGE_CADENCE_LABEL, BADGE_CONDITION_META, describeBadgeCondition } from '../lib/badgeMeta';
 
 const store = useAppStore();
@@ -110,7 +110,7 @@ const coverage = (condition: BadgeCondition) => {
   } else if (condition === 'fat_loss_kg') {
     const fid = fatMetricId.value;
     n = fid ? students.value.filter((s) => {
-      const v = MOCK_STUDENT_METRIC_VALUES[s.id]?.[fid];
+      const v = metricValuesFor(s.id, campId.value)[fid];
       return v && typeof v.beforeValue === 'number' && typeof v.afterValue === 'number';
     }).length : 0;
   } else {

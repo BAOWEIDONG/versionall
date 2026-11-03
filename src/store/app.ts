@@ -17,7 +17,7 @@ import {
   MOCK_POINT_PRODUCTS,
   MOCK_POINT_EXCHANGES,
   MOCK_MANUAL_SCORES,
-  MOCK_STUDENT_METRIC_VALUES,
+  metricValuesFor,
 } from '../mock/data';
 import * as api from '../lib/api';
 import { calculateTotalScore } from '../lib/scoring';
@@ -498,8 +498,15 @@ export const useAppStore = defineStore('app', () => {
       }
       if (data.user && data.user.role) {
         // P0：退营学员刷新/重开不得自动重登——重查 active（登录时已拦，但持久化 camp_auth 会绕过）
+        // 注意：init() 的 restoreBiz() 尚未执行，此时 accounts.value 还是 mock，必须直接读持久化快照
         if (data.user.role === 'student') {
-          const account = accounts.value.find((a) => a.id === data.user.id && a.role === 'student');
+          let accountPool = accounts.value;
+          try {
+            const rawBiz = localStorage.getItem('camp_biz_data_versionall');
+            const snap = rawBiz ? JSON.parse(rawBiz) : null;
+            if (snap && Array.isArray(snap.accounts) && snap.accounts.length > 0) accountPool = snap.accounts;
+          } catch { /* 快照损坏时回退内存账户 */ }
+          const account = accountPool.find((a) => a.id === data.user.id && a.role === 'student');
           if (account && account.active === false) {
             localStorage.removeItem('camp_auth_versionall');
             return false;
@@ -857,6 +864,8 @@ export const useAppStore = defineStore('app', () => {
     },
   ): { ok: boolean; reason?: string; claim?: RewardClaim } {
     if (isStudentDisabled(studentId)) return { ok: false, reason: '该学员已退营，无法领取奖励' }; // 退营学员禁止资金/领取操作
+    // 连续打卡/解锁判定必须落在具体营期，禁止用全部营期合并数据拼连续天数
+    if (!claimInfo.campId) return { ok: false, reason: '缺少营期信息，无法领取' };
     // ①实时重读 tier + 已解锁快照，避免调用方传入的快照过期（已被删除 / 库存已被其它领取占用）
     const fresh = rewardTiers.value.find((t) => t.id === tierId);
     // 已解锁资格（仅连续打卡）：只要曾解锁即可凭快照领取，不依赖 live 档位是否存在/上下架
@@ -867,8 +876,8 @@ export const useAppStore = defineStore('app', () => {
     if (reqDays === undefined) return { ok: false, reason: '该奖励不存在或已被删除' };
     // 下架仅拦截"未解锁"的档位；已解锁的档位（含已下架/已删除）仍可领取
     if (fresh && fresh.active === false && !unlockSnap) return { ok: false, reason: '该奖励已下架，无法领取' };
-    // 库存（剩余可发量）：live 存在且未解锁时校验；凭解锁资格的领取（下架/删除）无库存概念，凭资格发放
-    if (fresh && !unlockSnap && fresh.stock <= 0) return { ok: false, reason: '该礼品库存不足' };
+    // 库存（剩余可发量）：只要档位仍存在就校验，解锁快照只解决「下架/删除」，不能绕过没货
+    if (fresh && fresh.stock <= 0) return { ok: false, reason: '该礼品库存不足' };
     // ②营期一致性
     if (claimInfo.campId && fresh && fresh.campId && fresh.campId !== claimInfo.campId) {
       return { ok: false, reason: '该奖励不属于当前营期' };
@@ -898,8 +907,8 @@ export const useAppStore = defineStore('app', () => {
         return { ok: false, reason: '连续打卡天数未达到该奖励要求，无法领取' };
       }
     }
-    // ⑤邮寄类必须填收货信息
-    if (claimInfo.deliveryMethod === 'shipped') {
+    // ⑤邮寄类必须填收货信息（运营后台审核确认阶段尚未收集地址，不在此拦截）
+    if (claimInfo.status !== 'confirmed' && claimInfo.deliveryMethod === 'shipped') {
       if (!claimInfo.recipientName?.trim() || !claimInfo.recipientPhone?.trim() || !claimInfo.recipientAddress?.trim()) {
         return { ok: false, reason: '请完整填写收件人、电话和收货地址' };
       }
@@ -1175,7 +1184,8 @@ export const useAppStore = defineStore('app', () => {
 
     const seen = { ranks: {}, lastSystemSeenAt: systemSeenAt.value, readNotif: readNotifIds.value };
     const claims = (cid ? getCampRewardClaims(cid) : rewardClaims.value).filter((c) => c.studentId === studentId);
-    const exchanges = getStudentExchanges(studentId).filter((e) => !cid || !e.campId || e.campId === cid);
+    // 与消息列表同口径：营期内的兑换才计入，避免出现看得见角标、列表里没有的死计数
+    const exchanges = getStudentExchanges(studentId).filter((e) => !cid || e.campId === cid);
 
     let sys = 0;
     for (const c of claims) {
@@ -1358,7 +1368,7 @@ export const useAppStore = defineStore('app', () => {
       const report = generateStudentReport(
         { id: s.id, name: s.name, gender: s.gender },
         metricConfigs.value,
-        MOCK_STUDENT_METRIC_VALUES[s.id] || {},
+        metricValuesFor(s.id, campId),
         sd,
         se,
         sw,
@@ -1505,7 +1515,8 @@ export const useAppStore = defineStore('app', () => {
     return exerciseRecords.value.filter((r) => r.campId === campId);
   }
   function getCampManualScoreRecords(campId: string) {
-    return manualScoreRecords.value.filter((r) => !r.campId || r.campId === campId);
+    // 与饮食/运动/体重一致：严格按营期归属，避免一笔无归属补分被每期重复计入
+    return manualScoreRecords.value.filter((r) => r.campId === campId);
   }
   function getCampWeightRecords(campId: string) {
     return weightRecords.value.filter((r) => r.campId === campId);
