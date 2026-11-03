@@ -145,6 +145,31 @@ export const useAppStore = defineStore('app', () => {
       text: '注意结营后的回弹控制：聚餐后下一餐清淡，每天 1500ml 饮水别断，2 周后回来复测体成分。',
       createdAt: '2026-09-03 10:05:00',
     },
+    {
+      id: 'cm4', campId: 'camp1', studentId: 's13', role: 'dietitian', authorName: '王营养师', authorId: 'd1',
+      text: '这段时间你的打卡完成度是全营最高的，饮食结构也稳定了。结营后先保持现在的三餐节奏，两周内不要突然放开主食。',
+      createdAt: '2026-11-02 10:20:00',
+    },
+    {
+      id: 'cm5', campId: 'camp1', studentId: 's13', role: 'coach', authorName: '李教练', authorId: 'c1',
+      text: '运动习惯已经建立起来了，接下来把频率保持在一周 4 次，强度可以慢慢加到中等偏上，记得每次练完拉伸。',
+      createdAt: '2026-11-02 18:40:00',
+    },
+    {
+      id: 'cm6', campId: 'camp2', studentId: 's13', role: 'dietitian', authorName: '李营养师', authorId: 'd2',
+      text: '第二期刚开营，先把早餐和饮水固定下来，前一周不用刻意节食，把节奏跑顺最重要。',
+      createdAt: '2026-11-03 09:10:00',
+    },
+    {
+      id: 'cm7', campId: 'camp1', studentId: 's2', role: 'dietitian', authorName: '王营养师', authorId: 'd1',
+      text: '8 天连续完成很不容易，体重下降也在健康区间。后面重点看腰围和体脂，不用只盯体重数字。',
+      createdAt: '2026-11-01 15:00:00',
+    },
+    {
+      id: 'cm8', campId: 'camp1', studentId: 's14', role: 'coach', authorName: '王教练', authorId: 'c2',
+      text: '你的有氧基础不错，建议每周加两次力量训练，把肌肉量守住，减脂会更稳。',
+      createdAt: '2026-11-02 19:30:00',
+    },
   ]);
 
   /** 趣味活动开关（按营期独立配置，营养师端配置，学员端按此展示） */

@@ -27,15 +27,14 @@ const selectedCamp = computed(() => studentCamps.value.find(c => c.id === select
 
 watch(() => store.selectedStudentId, (id) => {
   if (id) {
-    if (store.detailSelectedCampId && studentCamps.value.some(c => c.id === store.detailSelectedCampId)) {
-      // 详情流已选营期 -> 继承（不影响全局）
-      selectedCampId.value = store.detailSelectedCampId;
-    } else if (!store.detailSelectedCampId) {
-      // 全部营期模式 -> 不选具体营期，展示全部数据（有意保留跨营合并视图，不默认回落最新一期）
-      selectedCampId.value = '';
+    // 详情流内已选营期优先；否则继承教练首页当前营期（与首页数据口径一致），
+    // 避免首页看第二期、详情却默认「全部营期」导致批注落到另一期、学员端消息收不到。
+    const ctx = store.detailSelectedCampId || store.selectedCampId;
+    if (ctx && studentCamps.value.some(c => c.id === ctx)) {
+      selectedCampId.value = ctx;
     } else {
       const campId = store.getStudentCampId(id);
-      if (campId) selectedCampId.value = campId;
+      selectedCampId.value = campId || '';
     }
   }
 }, { immediate: true });
