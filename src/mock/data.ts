@@ -981,6 +981,8 @@ demoProfiles.forEach((p) => {
   let weight = p.startWeight;
   for (let i = 0; i < days; i++) {
     const off = startOffset + i;
+    // 体验学员：今天不预置任何打卡记录，保证登录后早餐/午餐/晚餐、运动、体重都能现场演示打卡
+    if (p.id === 's13' && off === 0) continue;
     const dayKey = `${p.id}_${p.campId}_${i}`;
     const active = demoRand(dayKey + 'active') < p.rate;
     if (!active) continue;
