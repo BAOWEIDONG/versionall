@@ -145,6 +145,34 @@ const todayQuote = getTodayQuote();
 const streakData = computed(() => calculateStreak(campEx.value, campDiet.value, campWt.value, store.user?.id));
 const currentStreak = computed(() => streakData.value.currentStreak);
 
+// ─── 个人历程卡预览数据 ───
+/** 本营期有任意打卡的天数（饮食/运动/体重去重） */
+const journeyCheckinDays = computed(() => {
+  const sid = store.user?.id;
+  if (!sid) return 0;
+  const dates = new Set<string>();
+  [...campDiet.value, ...campEx.value, ...campWt.value].forEach((r) => {
+    if (r.studentId === sid) dates.add(r.date.slice(0, 10));
+  });
+  return dates.size;
+});
+/** 本营期已获徽章枚数（与徽章中心同源） */
+const journeyBadgeCount = computed(() => {
+  const sid = store.user?.id;
+  const cid = activeCampId.value;
+  if (!sid || !cid) return 0;
+  return store.getStudentBadgeView(sid, cid).earned.length;
+});
+/** 体重 sparkline 折线点（最近 10 次，viewBox 0 0 100 32） */
+const weightSparkPoints = computed(() => {
+  const arr = myWeightRecords.value.slice(-10);
+  if (arr.length < 2) return '';
+  const vals = arr.map((r) => r.weight);
+  const min = Math.min(...vals);
+  const span = Math.max(...vals) - min || 1;
+  return vals.map((v, i) => `${((i / (vals.length - 1)) * 100).toFixed(1)},${(28 - ((v - min) / span) * 24).toFixed(1)}`).join(' ');
+});
+
 // 开营第几天（用于头部 DAY X 徽章）
 const campDay = computed(() => {
   if (!activeCamp.value?.startDate) return 1;
@@ -646,6 +674,60 @@ onActivated(() => {
           <div class="w-1.5 h-4 bg-[#04a551] rounded-full"></div>
           营期回顾与指导
         </h3>
+
+        <!-- 个人历程：整行长卡，卡面直接预览关键数据 -->
+        <Card class="mb-3 p-4 cursor-pointer active:scale-[0.99] transition-transform border-0 shadow-sm bg-gradient-to-br from-[#07C160]/8 via-white to-white relative overflow-hidden" @click="store.setCurrentView('personal-journey')">
+          <div class="absolute -top-10 -right-8 w-36 h-36 bg-gradient-to-br from-[#07C160]/12 to-teal-50 rounded-full blur-2xl pointer-events-none"></div>
+          <div class="relative z-10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#07C160] to-teal-500 flex items-center justify-center text-white shadow-sm shrink-0">
+                <BookOpen class="h-5 w-5" />
+              </div>
+              <div class="min-w-0">
+                <div class="text-sm font-bold text-gray-900">个人历程</div>
+                <div class="text-[10px] text-gray-500 mt-0.5 truncate">营期报告 · 体重趋势 · 打卡轨迹</div>
+              </div>
+              <div class="ml-auto text-[11px] font-bold text-[#07C160] shrink-0">查看完整 ›</div>
+            </div>
+
+            <div class="grid grid-cols-4 gap-1.5 mt-3">
+              <div class="bg-white/70 rounded-xl py-2 text-center">
+                <div class="text-lg font-black text-gray-900 leading-none">{{ journeyCheckinDays }}</div>
+                <div class="text-[9px] text-gray-500 mt-1">打卡天数</div>
+              </div>
+              <div class="bg-white/70 rounded-xl py-2 text-center">
+                <div :class="['text-lg font-black leading-none', weightChange === null ? 'text-gray-400' : weightChange < 0 ? 'text-[#07C160]' : weightChange > 0 ? 'text-[#FF976A]' : 'text-gray-900']">
+                  {{ weightChange === null ? '--' : (weightChange > 0 ? '+' : '') + weightChange }}
+                </div>
+                <div class="text-[9px] text-gray-500 mt-1">体重变化 kg</div>
+              </div>
+              <div class="bg-white/70 rounded-xl py-2 text-center">
+                <div class="text-lg font-black text-gray-900 leading-none">{{ currentStreak }}</div>
+                <div class="text-[9px] text-gray-500 mt-1">连续打卡</div>
+              </div>
+              <div class="bg-white/70 rounded-xl py-2 text-center">
+                <div class="text-lg font-black text-gray-900 leading-none">{{ journeyBadgeCount }}</div>
+                <div class="text-[9px] text-gray-500 mt-1">已获徽章</div>
+              </div>
+            </div>
+
+            <!-- 体重走势缩略图 -->
+            <div v-if="weightSparkPoints" class="mt-3 h-9 bg-white/60 rounded-xl px-2 flex items-center">
+              <svg viewBox="0 0 100 32" preserveAspectRatio="none" class="w-full h-6">
+                <defs>
+                  <linearGradient id="journeySparkFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#07C160" stop-opacity="0.28" />
+                    <stop offset="100%" stop-color="#07C160" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <polygon :points="`0,32 ${weightSparkPoints} 100,32`" fill="url(#journeySparkFill)" />
+                <polyline :points="weightSparkPoints" fill="none" stroke="#07C160" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+              </svg>
+              <span class="text-[9px] text-gray-400 shrink-0 ml-2">近 {{ myWeightRecords.slice(-10).length }} 次体重</span>
+            </div>
+          </div>
+        </Card>
+
         <div class="grid grid-cols-2 gap-3">
           <Card class="p-5 cursor-pointer hover:shadow-md transition-shadow border-0 shadow-sm flex flex-col justify-between h-32 bg-white relative overflow-hidden" @click="store.setCurrentView('calendar')">
             <div class="absolute -top-8 -right-6 w-32 h-32 bg-gradient-to-br from-orange-100/50 to-orange-50 rounded-full blur-2xl pointer-events-none"></div>
@@ -682,19 +764,6 @@ onActivated(() => {
               <div>
                 <div class="text-sm font-bold text-gray-900">我的奖励</div>
                 <div class="text-[11px] text-gray-500 mt-0.5">奖品进度与领取</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card class="p-5 cursor-pointer hover:shadow-md transition-shadow border-0 shadow-sm flex flex-col justify-between h-32 bg-white relative overflow-hidden" @click="store.setCurrentView('personal-journey')">
-            <div class="absolute -top-8 -right-6 w-32 h-32 bg-gradient-to-br from-[#07C160]/12 to-green-50 rounded-full blur-2xl pointer-events-none"></div>
-            <div class="relative z-10">
-              <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#07C160] to-teal-500 flex items-center justify-center text-white mb-2 shadow-sm">
-                <BookOpen class="h-5 w-5" />
-              </div>
-              <div>
-                <div class="text-sm font-bold text-gray-900">个人历程</div>
-                <div class="text-[11px] text-gray-500 mt-0.5 truncate">营期报告 · 数据趋势</div>
               </div>
             </div>
           </Card>

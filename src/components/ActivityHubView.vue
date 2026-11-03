@@ -4,6 +4,7 @@ import { useAppStore } from '../store/app';
 import { ChevronRight, Coins, Gift, Package, Sparkles } from 'lucide-vue-next';
 import { StudentTabbar } from './ui';
 import { calculateStreak } from '../lib/streak';
+import { Popup as VanPopup } from 'vant';
 
 const store = useAppStore();
 
@@ -40,6 +41,12 @@ interface PrizePoolItem {
   tag: string;
   tagColor: string;
   category: 'streak' | 'milestone' | 'weekly' | 'lucky' | 'mall';
+  /** 商品说明 */
+  description: string;
+  /** 获取途径文案 */
+  obtain: string;
+  /** 剩余库存 */
+  stock: number;
 }
 
 const prizePool = computed<PrizePoolItem[]>(() => {
@@ -60,6 +67,9 @@ const prizePool = computed<PrizePoolItem[]>(() => {
         tag: isMilestone ? '阶梯达标' : isWeekly ? '每周挑战' : '全勤抽奖',
         tagColor: isMilestone ? '#07C160' : isWeekly ? '#1677FF' : '#FF976A',
         category: isMilestone ? 'milestone' : isWeekly ? 'weekly' : 'lucky',
+        description: t.description || '',
+        obtain: isMilestone ? '减重达到活动阶梯目标后解锁领取' : isWeekly ? '完成当期每周主题挑战后解锁' : '营期全勤即可参与抽奖',
+        stock: t.stock,
       });
     } else {
       // 连续打卡奖励：受 checkinStreak 开关控制
@@ -68,6 +78,9 @@ const prizePool = computed<PrizePoolItem[]>(() => {
         id: t.id, name: t.name, imageUrl: t.imageUrl,
         tag: `坚持${t.requiredDays}天`,
         tagColor: '#07C160', category: 'streak',
+        description: t.description || '',
+        obtain: `连续打卡满 ${t.requiredDays} 天，在「我的奖励」中领取`,
+        stock: t.stock,
       });
     }
   }
@@ -79,6 +92,9 @@ const prizePool = computed<PrizePoolItem[]>(() => {
         id: p.id, name: p.name, imageUrl: p.imageUrl,
         tag: `${p.pointsRequired}积分`,
         tagColor: '#FF6B35', category: 'mall',
+        description: p.description || '',
+        obtain: `使用 ${p.pointsRequired} 积分在积分商城兑换`,
+        stock: p.stock,
       });
     }
   }
@@ -87,6 +103,25 @@ const prizePool = computed<PrizePoolItem[]>(() => {
 
 const hasPrizes = computed(() => prizePool.value.length > 0);
 
+// ─── 奖品池点击预览 ──────────────────────────────
+const selectedPrize = ref<PrizePoolItem | null>(null);
+const showPrizeDetail = ref(false);
+function openPrizeDetail(prize: PrizePoolItem) {
+  // 拖动轮播时不触发预览
+  if (isDragging || dragMoved) return;
+  selectedPrize.value = prize;
+  showPrizeDetail.value = true;
+}
+const prizeCtaLabel = computed(() => {
+  if (!selectedPrize.value) return '去获取';
+  return selectedPrize.value.category === 'mall' ? '去积分商城兑换' : '查看我的奖励';
+});
+function goGetPrize() {
+  const cat = selectedPrize.value?.category;
+  showPrizeDetail.value = false;
+  store.setCurrentView(cat === 'mall' ? 'points-mall' : 'reward');
+}
+
 // ─── 奖品池滚动（纯 rAF，自动 + 手动统一控制） ────────────
 const scrollTrack = ref<HTMLElement | null>(null);
 let offset = 0;          // 当前 translateX 偏移（px）
@@ -94,6 +129,7 @@ let halfWidth = 0;       // 内容一半宽度（无缝循环用）
 let rafId: number | null = null;
 let autoScroll = true;   // 是否自动滚动
 let isDragging = false;
+let dragMoved = false;   // 本次触摸是否发生了滑动（用于区分点击与滑动）
 let lastTouchX = 0;
 let velocity = 0;        // 手松开时的惯性速度
 let frictionRaf: number | null = null;
@@ -116,6 +152,7 @@ function applyTransform() {
 
 function onTouchStart(e: TouchEvent | MouseEvent) {
   isDragging = true;
+  dragMoved = false;
   autoScroll = false;
   velocity = 0;
   if (frictionRaf) { cancelAnimationFrame(frictionRaf); frictionRaf = null; }
@@ -129,6 +166,7 @@ function onTouchMove(e: TouchEvent) {
   e.preventDefault();
   const x = e.touches[0].clientX;
   const delta = x - lastTouchX;
+  if (Math.abs(delta) > 2) dragMoved = true;
   lastTouchX = x;
   velocity = delta;           // 记录最后一步速度供惯性用
   offset += delta;
@@ -286,7 +324,8 @@ const unreadCount = computed(() =>
               <div
                 v-for="(prize, idx) in [...prizePool, ...prizePool]"
                 :key="prize.id + '-' + idx"
-                class="shrink-0 w-[96px] mr-2.5"
+                class="shrink-0 w-[96px] mr-2.5 cursor-pointer active:scale-95 transition-transform"
+                @click="openPrizeDetail(prize)"
               >
                 <!-- 图片：干净无遮挡 -->
                 <div class="w-[96px] h-[96px] rounded-xl overflow-hidden bg-gray-50 shadow-sm border border-gray-100">
@@ -417,6 +456,38 @@ const unreadCount = computed(() =>
         </p>
       </div>
     </div>
+
+    <!-- 奖品详情预览：点击奖品池任意奖品打开 -->
+    <VanPopup v-model:show="showPrizeDetail" position="bottom" round>
+      <div v-if="selectedPrize" class="p-5 pb-8">
+        <div class="flex items-start gap-4">
+          <div class="w-20 h-20 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 shrink-0">
+            <img :src="selectedPrize.imageUrl" class="w-full h-full object-cover" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h3 class="text-lg font-black text-gray-900 truncate">{{ selectedPrize.name }}</h3>
+              <span class="text-[10px] font-bold text-white px-2 py-0.5 rounded-full shrink-0" :style="{ background: selectedPrize.tagColor }">{{ selectedPrize.tag }}</span>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-1">剩余 {{ selectedPrize.stock }} 件</p>
+            <p class="text-xs text-gray-600 leading-relaxed mt-2">{{ selectedPrize.description || '活动奖品，具体以实际发放为准。' }}</p>
+          </div>
+        </div>
+
+        <div class="mt-4 rounded-2xl bg-[#07C160]/6 border border-[#07C160]/15 p-4">
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#07C160] mb-1.5">
+            <Sparkles class="w-3.5 h-3.5" /> 获取途径
+          </div>
+          <p class="text-sm text-gray-800 leading-relaxed">{{ selectedPrize.obtain }}</p>
+          <p v-if="selectedPrize.category === 'mall'" class="text-[10px] text-gray-400 mt-1.5">积分来自饮食、运动、体重打卡与营养师奖励；兑换后可在「我的奖励」查看物流。</p>
+          <p v-else class="text-[10px] text-gray-400 mt-1.5">达成条件后到「我的奖励」领取，支持邮寄或线下发放。</p>
+        </div>
+
+        <button class="w-full mt-5 h-12 rounded-full bg-[#07C160] text-white font-bold active:scale-[0.98] transition-transform" @click="goGetPrize">
+          {{ prizeCtaLabel }}
+        </button>
+      </div>
+    </VanPopup>
 
     <!-- Bottom Nav -->
     <StudentTabbar anchor="activity-hub" :badge="unreadCount > 0 ? unreadCount : undefined" />
