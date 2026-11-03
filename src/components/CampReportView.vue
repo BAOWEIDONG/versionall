@@ -363,7 +363,7 @@ const exportPDF = () => {
         <h3 class="font-bold text-gray-900 mb-4 flex items-center gap-2 border-b pb-2">
           <Award class="h-4 w-4 text-[#FF976A]" />
           徽章墙
-          <span class="ml-auto text-xs text-gray-400 font-normal">{{ unlockedAchievements.length }}/{{ badgeWall.length }}</span>
+          <span class="ml-auto text-xs text-gray-400 font-normal">已点亮 {{ unlockedAchievements.length }}/{{ badgeWall.length }} 种</span>
         </h3>
         <div class="grid grid-cols-4 gap-3">
           <div
