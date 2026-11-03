@@ -44,7 +44,6 @@ const activityStats = computed(() => activityConfigs.value.map((cfg) => {
   const list = myBadges.value.filter((b) => b.badgeId === cfg.id);
   return { ...cfg, earned: list.length, latest: list[0]?.earnedAt || '' };
 }));
-const activityDetails = computed(() => myBadges.value.filter((b) => b.category === 'activity'));
 
 const cadenceLabel = (c: BadgeCadence) => (c === 'day' ? '每日' : c === 'week' ? '每周' : '每月');
 
@@ -58,11 +57,6 @@ const activeRecords = computed(() => {
 const openBadge = (cfg: BadgeConfig) => {
   activeCfg.value = cfg;
   showInfo.value = true;
-};
-const openActivityRecord = (r: BadgeRecord) => {
-  const cfg = configs.value.find((c) => c.id === r.badgeId);
-  if (cfg) openBadge(cfg);
-  else openHistorical(r);
 };
 const openHistorical = (r: BadgeRecord) => {
   activeCfg.value = {
@@ -167,22 +161,6 @@ onMounted(() => {
               <div class="text-sm font-black text-[#07C160]">{{ c.earned }}<span class="text-[10px] text-gray-400 font-normal"> 枚</span></div>
               <div class="text-[10px] text-gray-400">{{ c.latest || '未获得' }}</div>
             </div>
-            <ChevronRight class="w-3.5 h-3.5 text-gray-300 shrink-0" />
-          </div>
-        </div>
-      </Card>
-
-      <!-- 活动徽章明细 -->
-      <Card v-if="activityDetails.length > 0">
-        <h3 class="text-sm font-bold text-gray-900 mb-3">活动徽章明细</h3>
-        <div class="space-y-2">
-          <div v-for="b in activityDetails" :key="b.id" class="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0 cursor-pointer active:opacity-70" @click="openActivityRecord(b)">
-            <div class="w-9 h-9 rounded-full bg-[#07C160]/10 flex items-center justify-center text-xl shrink-0">{{ b.icon }}</div>
-            <div class="flex-1 min-w-0">
-              <div class="text-xs font-bold text-gray-900">{{ b.badgeName }}</div>
-              <div class="text-[10px] text-gray-400">{{ cadenceLabel(b.cadence) }} · 周期 {{ b.periodKey }} · 达成 {{ b.value }} 天</div>
-            </div>
-            <div class="text-[10px] text-gray-500 shrink-0">{{ b.earnedAt }}</div>
             <ChevronRight class="w-3.5 h-3.5 text-gray-300 shrink-0" />
           </div>
         </div>
