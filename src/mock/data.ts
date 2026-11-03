@@ -1221,30 +1221,3 @@ export const DEMO_METRIC_CAMP1_STUDENT_IDS = DEMO_METRIC_CAMP1_IDS;
 
 /** 演示数据版本：用于本机旧快照的一次性增量合并（改动 mock 种子时 +1） */
 export const DEMO_SCHEMA_VERSION = 3;
-
-/** 体验学员（s13）的入营问卷种子：首次登录自动写入本机，保证健康档案/自查问卷不是空白 */
-export const MOCK_QUESTIONNAIRE_S13 = {
-  name: '体验学员',
-  gender: 'female',
-  age: '30',
-  height: '168',
-  weight: '68',
-  targetWeight: '60',
-  hasChronic: '无',
-  chronicDetails: '',
-  hasSpecialDiet: '无',
-  specialDietDetails: '',
-  hasFoodAllergy: '无',
-  foodAllergyDetails: '',
-  sleepTime: '23:00',
-  wakeTime: '07:00',
-  sleepDuration: '8',
-  drinkAlcohol: '从不',
-  smoke: '从不',
-  snack: '否',
-  dailyWater: '1800',
-  exerciseFrequency: '3',
-  exerciseDuration: '45',
-  exerciseTypes: ['快走', '瑜伽', '力量训练'],
-  medicalReports: [],
-};

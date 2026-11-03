@@ -7,7 +7,7 @@ import { NavBar, Card, StudentTabbar } from './ui';
 import { Activity, FileText, ClipboardList, Stethoscope, UploadCloud, X, Pencil, ChevronRight, ChevronDown } from 'lucide-vue-next';
 import { Popup as VanPopup, TimePicker as VanTimePicker } from 'vant';
 import { buildMedicalData } from '../lib/medicalData';
-import { MOCK_METRIC_VALUES, metricValuesFor, MOCK_QUESTIONNAIRE_S13 } from '../mock/data';
+import { MOCK_METRIC_VALUES, metricValuesFor } from '../mock/data';
 
 const store = useAppStore();
 // 入营问卷数据按当前学员隔离读取/写入，防止新账户串用他人问卷
@@ -66,14 +66,11 @@ onMounted(() => {
     try {
       const parsed = JSON.parse(saved);
       const normalized = normalizeQData(parsed.formData || parsed);
-      // 旧测试数据可能只存了 '1'，非对象视为无效，走种子兜底
       if (normalized && typeof normalized === 'object') qData.value = normalized;
     } catch (e) {
       // ignore
     }
   }
-  // 体验学员兜底：本机没有问卷时用种子数据，避免健康档案整页空白
-  if (!qData.value && store.user?.id === 's13') qData.value = normalizeQData(MOCK_QUESTIONNAIRE_S13);
 });
 
 function persistQuestionnaire(data: any) {

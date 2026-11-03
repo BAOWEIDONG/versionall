@@ -13,7 +13,7 @@ import { Popup as VanPopup, showToast } from 'vant';
 import { formatDateTime } from '../lib/utils';
 import { useDateGrouping } from '../composables/useDateGrouping';
 import type { ExerciseRecord } from '../types';
-import { MOCK_METRIC_VALUES, metricValuesFor, MOCK_QUESTIONNAIRE_S13 } from '../mock/data';
+import { MOCK_METRIC_VALUES, metricValuesFor } from '../mock/data';
 import { buildMedicalData, isValueOutOfRange, type MedicalCategory, type Indicator } from '../lib/medicalData';
 
 const store = useAppStore();
@@ -212,15 +212,11 @@ const loadQuestionnaire = (studentId?: string | null) => {
   qData.value = null;
   const saved = localStorage.getItem(questionnaireStorageKey('submitted', studentId || 'none'))
     || localStorage.getItem(questionnaireStorageKey('draft', studentId || 'none'));
-  if (!saved) {
-    if (studentId === 's13') qData.value = { ...MOCK_QUESTIONNAIRE_S13 };
-    return;
-  }
+  if (!saved) return;
   try {
     const parsed = JSON.parse(saved);
     const val = parsed.formData || parsed;
     if (val && typeof val === 'object') qData.value = val;
-    else if (studentId === 's13') qData.value = { ...MOCK_QUESTIONNAIRE_S13 };
   } catch { /* 问卷数据损坏时保持空态 */ }
 };
 // KeepAlive 下切换学员不会重新 mount，必须按 studentId 重新加载
