@@ -353,7 +353,7 @@ const exportPDF = () => {
           </div>
           <div class="flex-1 bg-white/15 rounded-lg py-2">
             <div class="text-xl font-bold">{{ earnedBadgeCount }}</div>
-            <div class="text-[10px] opacity-80">已获徽章</div>
+            <div class="text-[10px] opacity-80">累计徽章</div>
           </div>
         </div>
       </div>

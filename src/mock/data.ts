@@ -1048,9 +1048,13 @@ demoProfiles.forEach((p) => {
     }
 
     // 体重：每 2 天一次，整体缓慢下降；最后一天保证有记录（演示趋势与结营报告）
-    if (demoRand(dayKey + 'wt') < p.rate * 0.65 || i <= 1 || i === days - 1) {
+    // 体验学员第一期：每天一条体重，线性从 68 降到 63.5，与结营体测的营后体重对齐
+    const demoCamp1 = p.id === 's13' && p.campId === 'camp1';
+    if (demoCamp1 || demoRand(dayKey + 'wt') < p.rate * 0.65 || i <= 1 || i === days - 1) {
       const seed = `dw_${p.id}_${p.campId}_${i}`;
-      if (i > 0) weight = Math.max(p.startWeight - 8, weight - 0.18 - demoRand(seed) * 0.12);
+      if (demoCamp1) {
+        weight = Number((p.startWeight - (p.startWeight - 63.5) * (i / Math.max(1, days - 2))).toFixed(1));
+      } else if (i > 0) weight = Math.max(p.startWeight - 8, weight - 0.18 - demoRand(seed) * 0.12);
       const doAnno = demoRand(dayKey + 'wtann') < p.annotate * 0.6;
       const annoText = '体重下降节奏很好，注意蛋白摄入别掉。';
       MOCK_WEIGHT_RECORDS.push({
@@ -1089,9 +1093,32 @@ demoMetricIds.forEach((sid, idx) => {
 
 // 体验学员 s13 的体重指标与打卡记录对齐（68 → 63.5），报告更可信
 if (MOCK_STUDENT_METRIC_VALUES.s13) {
-  MOCK_STUDENT_METRIC_VALUES.s13['mc_body_weight'] = { beforeValue: 68, afterValue: 63.5 };
-  MOCK_STUDENT_METRIC_VALUES.s13['mc_body_fat'] = { beforeValue: 27.2, afterValue: 22.6 };
-  MOCK_STUDENT_METRIC_VALUES.s13['mc_body_muscle'] = { beforeValue: 40.1, afterValue: 41.0 };
+  // 体验学员第一期：给一套完整、方向正确的体成分/代谢/肝肾功能复测数据，
+  // 让「健康档案-体检指标」「结营报告-指标变化」「指标变化统计」都有可讲的改善故事。
+  Object.assign(MOCK_STUDENT_METRIC_VALUES.s13, {
+    'mc_body_weight': { beforeValue: 68, afterValue: 63.5 },
+    'mc_body_fat': { beforeValue: 27.2, afterValue: 22.6 },
+    'mc_body_muscle': { beforeValue: 40.1, afterValue: 41.0 },
+    'mc_body_skeletal': { beforeValue: 30.63, afterValue: 31.24 },
+    'mc_body_bmr': { beforeValue: 1580.5, afterValue: 1608 },
+    'mc_body_whr': { beforeValue: 1.04, afterValue: 0.93 },
+    'mc_body_visceral': { beforeValue: 130.8, afterValue: 98.2 },
+    'mc_body_obesity': { beforeValue: 136.25, afterValue: 118.4 },
+    'mc_body_cell': { beforeValue: 38.7, afterValue: 39.6 },
+    'mc_body_edema': { beforeValue: 0.44, afterValue: 0.39 },
+    'mc_body_asmi': { beforeValue: 7.6, afterValue: 8.0 },
+    'mc_body_ainst': { beforeValue: 65, afterValue: 82 },
+    'mc_liver_alt': { beforeValue: 59.95, afterValue: 38 },
+    'mc_liver_ast': { beforeValue: 42, afterValue: 30 },
+    'mc_liver_ggt': { beforeValue: 70, afterValue: 45 },
+    'mc_kidney_ua': { beforeValue: 490.5, afterValue: 410 },
+    'mc_bl_tc': { beforeValue: 6.0, afterValue: 5.1 },
+    'mc_bl_tg': { beforeValue: 2.29, afterValue: 1.6 },
+    'mc_bl_hdl': { beforeValue: 1.0, afterValue: 1.3 },
+    'mc_bl_ldl': { beforeValue: 3.8, afterValue: 3.0 },
+    'mc_bs_fasting': { beforeValue: 6.32, afterValue: 5.5 },
+    'mc_bs_hba1c': { beforeValue: 6.3, afterValue: 5.8 },
+  });
 }
 
 // 补充兑换/领取/补录，演示发放中心与学员「我的奖励」
@@ -1193,4 +1220,30 @@ export function hasCampMetricReview(campId?: string | null): boolean {
 export const DEMO_METRIC_CAMP1_STUDENT_IDS = DEMO_METRIC_CAMP1_IDS;
 
 /** 演示数据版本：用于本机旧快照的一次性增量合并（改动 mock 种子时 +1） */
-export const DEMO_SCHEMA_VERSION = 2;
+export const DEMO_SCHEMA_VERSION = 3;
+
+/** 体验学员（s13）的入营问卷种子：首次登录自动写入本机，保证健康档案/自查问卷不是空白 */
+export const MOCK_QUESTIONNAIRE_S13 = {
+  gender: 'female',
+  age: '30',
+  height: '168',
+  weight: '68',
+  targetWeight: '60',
+  hasChronic: '无',
+  chronicDetails: '',
+  hasSpecialDiet: '无',
+  specialDietDetails: '',
+  hasFoodAllergy: '无',
+  foodAllergyDetails: '',
+  sleepTime: '23:00',
+  wakeTime: '07:00',
+  sleepDuration: '8',
+  drinkAlcohol: '从不',
+  smoke: '从不',
+  snack: '否',
+  dailyWater: '1800',
+  exerciseFrequency: '3',
+  exerciseDuration: '45',
+  exerciseTypes: ['快走', '瑜伽', '力量训练'],
+  medicalReports: [],
+};

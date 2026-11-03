@@ -443,7 +443,12 @@ export const useAppStore = defineStore('app', () => {
     } else {
       pool = camps.value;
     }
-    const latestId = latestOrFirstId(pool);
+    let latestId = latestOrFirstId(pool);
+    // 演示账号：默认展示数据完整的第一期（体测/报告/徽章都有内容），仍可在首页切到第二期
+    if (user.value.role === 'student' && user.value.id === 's13') {
+      const fullCamp = pool.find((c) => c.id === 'camp1');
+      if (fullCamp) latestId = fullCamp.id;
+    }
     if (latestId) selectedCampId.value = latestId;
   }
 
@@ -1003,7 +1008,7 @@ export const useAppStore = defineStore('app', () => {
 
   /** 旧版本快照 → 新 mock 种子的一次性增量合并：
    *  保留用户改过的数据，仅补充新增的学员/账号/奖品/记录，并清掉未来日期等脏数据。 */
-  function mergeSeedData() {
+  function mergeSeedData(fromVersion = 1) {
     const today = formatDateTimeStr().slice(0, 10);
     const campStart = (cid?: string) => camps.value.find((c) => c.id === cid)?.startDate || '';
     const validDate = (d: string, cid?: string) => {
@@ -1020,7 +1025,10 @@ export const useAppStore = defineStore('app', () => {
       if (!hit) accounts.value.push({ ...a });
       else if (a.supervisor && !hit.supervisor) hit.supervisor = true;
     });
-    // 记录：清掉未来/开营前脏数据，再按业务主键补缺
+    // 记录：清掉未来/开营前脏数据；v3 起用线性体重历史替换体验学员第一期旧体重
+    if (fromVersion < 3) {
+      weightRecords.value = weightRecords.value.filter((r) => !(r.studentId === 's13' && r.campId === 'camp1'));
+    }
     dietRecords.value = dietRecords.value.filter((r) => validDate(r.date, r.campId));
     exerciseRecords.value = exerciseRecords.value.filter((r) => validDate(r.date, r.campId));
     weightRecords.value = weightRecords.value.filter((r) => validDate(r.date, r.campId));
@@ -1051,7 +1059,7 @@ export const useAppStore = defineStore('app', () => {
       });
       const savedVersion = Number((snap as any)._v || 1);
       if (hasData && savedVersion < DEMO_SCHEMA_VERSION) {
-        mergeSeedData();
+        mergeSeedData(savedVersion);
         persistBiz();
       }
       return hasData;

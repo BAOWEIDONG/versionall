@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { showDialog, Checkbox as VanCheckbox, showToast } from 'vant';
 import { useAppStore, questionnaireStorageKey } from '../store/app';
+import { MOCK_QUESTIONNAIRE_S13 } from '../mock/data';
 import { Button, NavBar } from './ui';
 import { MessageCircle, UserCircle, Dumbbell, Leaf, Activity } from 'lucide-vue-next';
 import type { Role } from '../types';
@@ -57,6 +58,12 @@ const handlePhoneSubmit = () => {
   }
 
   error.value = '';
+  // 体验学员：首次登录写入一份完整问卷/身体基础数据，保证健康档案与报告不是空态
+  if (account.id === 's13' && !localStorage.getItem(questionnaireStorageKey('submitted', account.id))) {
+    try {
+      localStorage.setItem(questionnaireStorageKey('submitted', account.id), JSON.stringify({ formData: MOCK_QUESTIONNAIRE_S13 }));
+    } catch { /* 隐私模式忽略 */ }
+  }
   // 从 students 列表补充 gender/age 信息
   const studentInfo = store.students.find((s) => s.id === account.id);
   store.setUser({
