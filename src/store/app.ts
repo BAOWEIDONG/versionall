@@ -325,6 +325,8 @@ export const useAppStore = defineStore('app', () => {
     if (r) (r as any).commentRead = true;
   }
   const viewHistory = ref<View[]>(['login']);
+  /** 最近一次导航方向：返回时用于恢复目标页滚动位置，前进/切Tab回顶部 */
+  const lastNavDirection = ref<'forward' | 'back'>('forward');
   const currentView = computed<View>(() => viewHistory.value[viewHistory.value.length - 1]);
 
   const questionnaireAnswered = ref(false);
@@ -589,6 +591,7 @@ export const useAppStore = defineStore('app', () => {
   const DETAIL_FLOW_VIEWS: View[] = ['dietitian-student-detail', 'coach-student-detail', 'pointsDetail'];
 
   function setCurrentView(view: View) {
+    lastNavDirection.value = 'forward';
     // 运营总览守卫：无督导权限一律拦截（含底部 Tab / 历史栈可达路径）
     if (view === 'supervisor-dashboard' && !user.value?.supervisor) return;
     // 入营问卷强制守卫：学员未完成问卷前，任何跳转一律被拉回问卷页，
@@ -623,12 +626,14 @@ export const useAppStore = defineStore('app', () => {
   /** 只弹内部视图栈，不碰浏览器历史（供 popstate / 自定义手势调用） */
   /** 登录/问卷提交后重置页面栈：根页返回时不再回到登录/问卷 */
   function resetToView(view: View) {
+    lastNavDirection.value = 'forward';
     viewHistory.value = [view];
     detailSelectedCampId.value = null;
   }
 
   function popViewHistory() {
     if (viewHistory.value.length > 1) {
+      lastNavDirection.value = 'back';
       viewHistory.value.pop();
       if (!DETAIL_FLOW_VIEWS.includes(currentView.value)) detailSelectedCampId.value = null;
     }
@@ -1709,6 +1714,7 @@ export const useAppStore = defineStore('app', () => {
     updateActivityConfig,
     currentView,
     viewHistory,
+    lastNavDirection,
     resetToView,
     init,
     questionnaireAnswered,

@@ -119,11 +119,18 @@ function syncRoleClass(role?: string | null) {
 }
 watch(() => store.user?.role, (r) => syncRoleClass(r));
 
-// 视图切换时滚动到顶部
+// 视图切换滚动策略：记住每页位置，返回时恢复；前进/切 Tab 回顶部
 const scrollContainer = ref<HTMLElement | null>(null);
-watch(() => store.currentView, () => {
+const scrollMemory = new Map<string, number>();
+const scrollKey = (view: string) => `${store.user?.id || 'anon'}:${view}`;
+watch(() => store.currentView, (to, from) => {
+  if (from && scrollContainer.value) {
+    scrollMemory.set(scrollKey(from), scrollContainer.value.scrollTop);
+  }
+  const isBack = store.lastNavDirection === 'back';
+  const targetTop = isBack ? (scrollMemory.get(scrollKey(to)) || 0) : 0;
   nextTick(() => {
-    scrollContainer.value?.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    scrollContainer.value?.scrollTo({ top: targetTop, behavior: 'instant' as ScrollBehavior });
   });
 });
 
