@@ -41,6 +41,17 @@ const renderScaleOf = (el: HTMLElement): number => {
   return Math.min(3, Math.max(2, Math.floor(adaptive * 10) / 10));
 };
 
+/** 收集当前文档全部同源 CSS 规则：克隆 iframe 里同步内联，避免移动端样式表未加载完就截图导致「无样式」 */
+function collectDocumentCss(): string {
+  let css = '';
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from((sheet as CSSStyleSheet).cssRules)) css += rule.cssText + '\n';
+    } catch { /* 跨域样式表读不到，跳过 */ }
+  }
+  return css;
+}
+
 /** 长图渲染倍率：按面积压到 iOS 约 1600 万像素内，最低 1x */
 function imageScaleOf(el: HTMLElement): number {
   const w = el.scrollWidth || el.offsetWidth || 375;
@@ -58,6 +69,8 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
 /** 渲染元素为 canvas：失败时逐级降倍率重试，避免长报告一次爆画布直接失败 */
 async function renderLongCanvas(el: HTMLElement): Promise<HTMLCanvasElement> {
   const { default: html2canvas } = await loadHtml2canvas();
+  try { await (document as any).fonts?.ready; } catch { /* 字体加载失败不阻塞 */ }
+  const inlineCss = collectDocumentCss();
   const base = imageScaleOf(el);
   const scales = Array.from(new Set([base, Math.max(1, Number((base * 0.75).toFixed(1))), 1]));
   let lastErr: unknown = null;
@@ -69,6 +82,14 @@ async function renderLongCanvas(el: HTMLElement): Promise<HTMLCanvasElement> {
         backgroundColor: '#F7F8FA',
         logging: false,
         windowWidth: el.scrollWidth || undefined,
+        // 关键：把当前页面 CSS 同步注入克隆文档，微信里样式表未就绪时也不会导出成无格式文本
+        onclone: (doc: Document) => {
+          if (!inlineCss) return;
+          const style = doc.createElement('style');
+          style.setAttribute('data-export-inline', '1');
+          style.textContent = inlineCss;
+          doc.head.appendChild(style);
+        },
       });
       if (canvas.width > 0 && canvas.height > 0) return canvas;
     } catch (e) { lastErr = e; }
