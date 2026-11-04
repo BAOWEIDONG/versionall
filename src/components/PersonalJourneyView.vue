@@ -140,7 +140,7 @@ const fmt = (v: number | null, digits = 1): string => v === null ? '--' : v.toFi
 const exportRef = ref<HTMLElement | null>(null);
 const exportPDF = () => {
   if (exportRef.value) {
-    exportReport(exportRef.value, `个人历程_${studentName.value}_${new Date().toISOString().split('T')[0]}`);
+    exportReport(exportRef.value, `个人历程_${studentName.value}_${new Date().toISOString().split('T')[0]}`, true);
   }
 };
 </script>

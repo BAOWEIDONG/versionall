@@ -41,30 +41,82 @@ const renderScaleOf = (el: HTMLElement): number => {
   return Math.min(3, Math.max(2, Math.floor(adaptive * 10) / 10));
 };
 
-/**
- * 报告导出统一入口（自动适配环境）：
- * - 普通浏览器：生成 A4 分页 PDF 下载；
- * - 微信内置浏览器：生成 PNG 长图并全屏预览，提示长按保存（微信无法直接下载文件，
- *   但 <img> 支持长按保存到相册，安卓/iOS 一致）。
- */
-export async function exportReport(el: HTMLElement, filename: string): Promise<void> {
-  if (isWeChat()) {
-    showToast({ message: '正在生成长图…', duration: 1200 });
+/** 长图渲染倍率：按面积压到 iOS 约 1600 万像素内，最低 1x */
+function imageScaleOf(el: HTMLElement): number {
+  const w = el.scrollWidth || el.offsetWidth || 375;
+  const h = el.scrollHeight || el.offsetHeight || 800;
+  const area = Math.max(w * h, 1);
+  const MAX_PIXELS = 16_000_000;
+  const fit = Math.sqrt(MAX_PIXELS / area);
+  return Math.max(1, Math.min(2, Math.floor(fit * 10) / 10));
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), 'image/png'));
+}
+
+/** 渲染元素为 canvas：失败时逐级降倍率重试，避免长报告一次爆画布直接失败 */
+async function renderLongCanvas(el: HTMLElement): Promise<HTMLCanvasElement> {
+  const { default: html2canvas } = await loadHtml2canvas();
+  const base = imageScaleOf(el);
+  const scales = Array.from(new Set([base, Math.max(1, Number((base * 0.75).toFixed(1))), 1]));
+  let lastErr: unknown = null;
+  for (const scale of scales) {
     try {
-      const { default: html2canvas } = await loadHtml2canvas();
       const canvas = await html2canvas(el, {
-        scale: renderScaleOf(el),
+        scale,
         useCORS: true,
         backgroundColor: '#F7F8FA',
         logging: false,
+        windowWidth: el.scrollWidth || undefined,
       });
-      const url = canvas.toDataURL('image/png');
+      if (canvas.width > 0 && canvas.height > 0) return canvas;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('canvas empty');
+}
+
+/**
+ * 导出 PNG 长图：
+ * - 微信内：全屏预览，提示长按保存到相册；
+ * - 普通浏览器：直接下载 .png。
+ * 用 Blob + objectURL，避免超长 dataURL 在 iOS 微信里超出长度限制。
+ */
+export async function exportElementAsImage(el: HTMLElement, filename: string): Promise<boolean> {
+  showToast({ message: '正在生成长图，请稍候…', duration: 1500 });
+  try {
+    const canvas = await renderLongCanvas(el);
+    const blob = await canvasToBlob(canvas);
+    const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/png');
+    if (isWeChat()) {
       showToast({ message: '长按图片可保存到相册', duration: 2500 });
       showImagePreview({ images: [url], closeable: true });
-    } catch (e) {
-      console.error('微信长图导出失败', e);
-      showToast({ message: '生成失败，请重试', duration: 2500 });
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filename}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast({ message: '长图已生成', duration: 2000 });
     }
+    if (blob) setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return true;
+  } catch (e) {
+    console.error('长图导出失败', e);
+    showToast({ message: '长图生成失败，请重试', duration: 2500 });
+    return false;
+  }
+}
+
+/**
+ * 报告导出统一入口：
+ * - preferImage=true 或微信内置浏览器：生成 PNG 长图（微信长按保存，普通浏览器直接下载）；
+ * - 其余管理端报表：生成 A4 分页 PDF 下载。
+ */
+export async function exportReport(el: HTMLElement, filename: string, preferImage = false): Promise<void> {
+  if (preferImage || isWeChat()) {
+    await exportElementAsImage(el, filename);
     return;
   }
   await exportElementAsPDF(el, filename);

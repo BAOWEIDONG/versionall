@@ -294,7 +294,7 @@ const encouragement = computed(() => {
 const exportRef = ref<HTMLElement | null>(null);
 const exportPDF = () => {
   if (exportRef.value) {
-    exportReport(exportRef.value, `个人营期报告_${studentName.value}_${new Date().toISOString().split('T')[0]}`);
+    exportReport(exportRef.value, `个人营期报告_${studentName.value}_${new Date().toISOString().split('T')[0]}`, true);
   }
 };
 </script>
